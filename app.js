@@ -5,10 +5,11 @@ const input = $('input');
 const output = $('output');
 const packetTitle = $('packetTitle');
 const meta = $('meta');
+const p2peMode = $('p2peMode');
 
 const SAMPLES = {
   request: '00D360009100010800202001000081008A982003000088000036333030303030370084333531323134347E3236303431363131323433307E3236303431363131323431387E3236303431363131323433307E3236303431363131323433307E7E38337E3335363632313338303738333338347E7E7E7E7E002131375E3232333532355E31362D4170722D32303236005034413931302020426F6E7573487562202030332E30332E30312E32363033323530303134313631303830303030303030303000173134393139343733363020202020203031',
-  response: '600001000204103020010002C102549200010000000086680013010002303036333030303031303030303030303030304C43333531360022313839313731307E323032333131303231393237313501385F2A0203565F340100820239008407A0000000041010950504400480009A032311029B02E8009C01009F02060000000086689F03060000000000009F0607A00000000410109F1A0203569F260848F62634320FD64D9F2701809F3303E0F8C89F34034203009F3501229F36020E4E9F3704ED63B109F10120110A00001220000000000000000FF0007535543434553530060307C317C35307C3437303030303039393331323039387C33393239333231347C3030303030317C3030303032377C3030303030347C564953417C',
+  response: '600001000204103020010002C102549200010000000086680013010002303036333030303031303030303030303030304C43333531360022313839313731307E323032333131303231393237313501385F2A0203565F340100820239008407A0000000041010950504400480009A032311029B02E8009C01009F02060000000086689F03060000000000009F0607A00000000410109F1A0203569F260848F62634320FD64D9F2701809F3303E0F8C89F34034203009F3501229F36020E4E9F3704ED63B109F10120110A00001220000000000000000000000FF0007535543434553530060307C317C35307C3437303030303039393331323039387C33393239333231347C3030303030317C3030303032377C3030303030347C564953417C',
   tlv: '5F2A0203565F340101820219008407A00000052410109B02E8009C01009F02060000000001009F03060000000000009F0607A00000052410109F2701809F3303E0F8C89F34034203009F3501229F360202739F370436D27083'
 };
 
@@ -17,8 +18,23 @@ const TAGS = {
 };
 
 const FIELDS = {
-  2:['PAN / Mobile','FIXED:8'],3:['Processing Code','BCD:3'],4:['Transaction Amount','BCD:6'],5:['Settlement Amount','BCD:6'],6:['DCC final amount','BCD:6'],7:['Server Transmission Date And Time','BCD:5'],10:['DCC Conversion detail','BCD:4'],11:['STAN','BCD:3'],12:['Local Transaction Time / Date Time','BCD:3'],13:['Local Transaction Date','BCD:2'],14:['Expiry Date','BCD:2'],15:['Settlement Date','BCD:2'],17:['Effective Date','BCD:2'],22:['POS Code','BCD:2'],23:['Application Sequence Number','BCD:3'],24:['Destination NII','BCD:2'],30:['Original Amount','BCD:6'],31:['Acquirer Ref No','LLVAR'],32:['Acquiring Institution Id Code','LLVAR'],35:['Track2','LLVAR'],37:['Retrieval Reference Number','FIXED:12'],38:['Approval Code','FIXED:12'],39:['Response Code','FIXED:2'],41:['TID','ASCII:8'],42:['MID','ASCII:15'],43:['Unique Txn ID','LLVAR'],44:['Additional Response Data','LLVAR'],45:['Track1','LLVAR'],46:['KSN details','LLVAR'],47:['User Id, Customer Id','LLVAR'],48:['Connection code and date time stamp','LLVAR'],49:['Transaction Currency Code','BCD:2'],51:['Cardholder currency code','BCD:2'],52:['Pin Block','BYTES:8'],53:['CVV / AES PIN Block','LLVAR'],54:['Additional Amount','LLVAR'],55:['ICC Data','LLVAR'],56:['Previous ROC, Date, Time in Reversal case','LLVAR'],57:['Track2 Encrypted','LLVAR'],58:['Card Indicator and Response Message','LLVAR'],59:['DCC detail / RSA Key in Request, Advice in response','LLVAR'],60:['Batch No','LLVAR'],61:['Bank Details','LLVAR'],62:['Invoice No','LLVAR'],63:['Promo Details','LLVAR']
+  2:['PAN / Mobile','FIXED',8], 3:['Processing Code','BCD',3], 4:['Transaction Amount','BCD',6], 6:['DCC final amount','BCD',6],
+  7:['Server Transmission Date And Time','BCD',5], 10:['DCC Conversion detail','BCD',4], 11:['STAN','BCD',3],
+  12:['Local Transaction Time / Date Time','BCD_DYNAMIC',0], 13:['Local Transaction Date','BCD',2], 14:['Expiry Date','BCD',2],
+  15:['Settlement Date','BCD',2], 17:['Effective Date','BCD',2], 22:['POS Code','BCD',2], 23:['Address/Application Sequence Number','BCD',3],
+  24:['Destination NII (Network International Identifier)','BCD',2], 30:['Original Amount','BCD',6],
+  31:['Acquirer Ref No','LLVAR',1], 32:['Acquiring Institution Id Code','LLVAR',1], 35:['Track2','LLVAR',2],
+  37:['Retrieval Reference Number','FIXED',12], 38:['Approval Code','FIXED',12], 39:['Response Code','FIXED',2],
+  41:['TID','BYTE',8], 42:['MID','BYTE',15], 43:['Unique Txn ID','LLVAR',2], 44:['Additional Response Data','LLVAR',2],
+  45:['Track1','LLVAR',2], 46:['KSN details','LLVAR',2], 47:['User Id, Customer Id','LLVAR',2],
+  48:['Connection code and date time stamp','LLVAR',2], 49:['Transaction Currency Code','BCD',2], 51:['Cardholder currency code','BCD',2],
+  52:['Pin Block','BYTE',8], 53:['CVV / AES PIN Block','LLVAR_DYNAMIC',0], 54:['Additional Amount','LLVAR',2],
+  55:['ICC Data','LLVAR',2], 56:['Previous ROC, Date, Time in Reversal case','LLVAR_DYNAMIC',0], 57:['Track2 Encrypted','LLVAR',2],
+  58:['Card Indicator and Response Message','LLVAR',2], 59:['DCC detail / RSA Key in Request, Advice in response','LLVAR',2],
+  60:['Batch No','LLVAR',2], 61:['Bank Details','LLVAR',2], 62:['Invoice No','LLVAR',2], 63:['Promo Details','LLVAR',2]
 };
+
+const SPECIAL_PROCESSING_CODES_FOR_DE56 = new Set(['982002','982004','960321']);
 
 function cleanHex(s){ return s.replace(/\s+/g,'').replace(/0x/gi,'').toUpperCase(); }
 function validHex(s){ return /^[0-9A-F]*$/.test(s) && s.length % 2 === 0; }
@@ -26,19 +42,16 @@ function bytes(hex){ const a=[]; for(let i=0;i<hex.length;i+=2)a.push(parseInt(h
 function ascii(hex){ return bytes(hex).map(b => b>=32 && b<=126 ? String.fromCharCode(b) : '.').join(''); }
 function printable(hex){ return ascii(hex); }
 function bitmapBits(hex){ let bits=''; for(const b of bytes(hex)) bits += b.toString(2).padStart(8,'0'); return bits; }
-function fieldInfo(n){ return FIELDS[n] || [`Field ${n}`,'LLVAR']; }
 
-function getPacketPrefix(hex, response){
-  if(response){
-    return { tpdu: hex.slice(0,10), mti: hex.slice(10,14), bitmapStart: 14 };
-  }
-  return { length: hex.slice(0,4), tpdu: hex.slice(4,14), mti: hex.slice(14,18), bitmapStart: 18 };
+function getPacketPrefix(hex,response){
+  if(response) return { tpdu:hex.slice(0,10), mti:hex.slice(10,14), bitmapStart:14 };
+  return { length:hex.slice(0,4), tpdu:hex.slice(4,14), mti:hex.slice(14,18), bitmapStart:18 };
 }
 
-function readBitmapPacket(hex, response=false){
+function readBitmapPacket(hex,response=false){
   const prefix=getPacketPrefix(hex,response);
+  if(prefix.bitmapStart+16>hex.length) throw new Error('Bitmap is incomplete');
   let pos=prefix.bitmapStart;
-  if(pos+16>hex.length) throw new Error('Bitmap is incomplete');
   let bitmapHex=hex.slice(pos,pos+16); pos+=16;
   let bits=bitmapBits(bitmapHex);
   if(bits[0]==='1'){
@@ -46,76 +59,75 @@ function readBitmapPacket(hex, response=false){
     bitmapHex+=hex.slice(pos,pos+16); pos+=16; bits=bitmapBits(bitmapHex);
   }
   const active=[]; [...bits].forEach((v,i)=>v==='1'&&active.push(i+1));
-  return {...prefix, bitmapHex, bits, active, rest:hex.slice(pos), prefixEnd:pos};
+  return {...prefix,bitmapHex,bits,active,rest:hex.slice(pos),prefixEnd:pos};
 }
 
-function parseFields(hex, active, response=false){
-  let pos=0; const rows=[];
+function fieldInfo(n,isReq,processingCode=''){
+  const base=FIELDS[n];
+  if(!base) return [`Field ${n}`,'LLVAR',2];
+  const [name,type,len]=base;
+  if(n===12) return [name,'BCD',isReq?3:6];
+  if(n===46 && !p2peMode.checked) return [`Field ${n}`,'UNSUPPORTED',0];
+  if(n===53) return [p2peMode.checked?'AES PIN Block':'CVV','LLVAR',p2peMode.checked?1:2];
+  if(n===56) return [name,'LLVAR',isReq && !SPECIAL_PROCESSING_CODES_FOR_DE56.has(processingCode)?1:2];
+  return [name,type,len];
+}
+
+function parseFields(hex,active,response=false){
+  let pos=0; const rows=[]; let processingCode='';
   for(const n of active){
     if(n===1) continue;
-    const [name,type]=fieldInfo(n);
-    let valueHex='', lengthInfo='', declaredLength=null;
-    if(type.startsWith('FIXED:')||type.startsWith('ASCII:')||type.startsWith('BYTES:')||type.startsWith('BCD:')){
-      const len=parseInt(type.split(':')[1],10);
+    const [name,type,len]=fieldInfo(n,!response,processingCode);
+    if(type==='UNSUPPORTED') throw new Error(`DE ${n} is not configured in Android parser (enable P2PE for DE46)`);
+    let valueHex='',lengthInfo='',declaredLength=null;
+    if(type==='FIXED'||type==='BCD'||type==='BYTE'){
       const hexLen=len*2;
       if(pos+hexLen>hex.length) throw new Error(`DE ${n} value is incomplete`);
       valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen; lengthInfo=`${len} bytes`;
     } else {
-      const digits=type==='LLVAR'?2:3;
-      if(pos+digits>hex.length) throw new Error(`DE ${n} length is incomplete`);
-      const lenDigits=hex.slice(pos,pos+digits); pos+=digits;
-      if(!/^\d+$/.test(lenDigits)) throw new Error(`DE ${n} has invalid ${type} length: ${lenDigits}`);
+      const lengthDigits=len;
+      if(pos+lengthDigits>hex.length) throw new Error(`DE ${n} length is incomplete`);
+      const lenDigits=hex.slice(pos,pos+lengthDigits); pos+=lengthDigits;
+      if(!/^\d+$/.test(lenDigits)) throw new Error(`DE ${n} has invalid LLVAR length: ${lenDigits}`);
       declaredLength=parseInt(lenDigits,10);
       const hexLen=declaredLength*2;
       if(pos+hexLen>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
-      valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen;
-      lengthInfo=`${declaredLength} bytes (${type})`;
+      valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen; lengthInfo=`${declaredLength} bytes (LLVAR/${lengthDigits})`;
     }
     rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
+    if(n===3) processingCode=bcd(valueHex);
   }
-  return {rows,pos,remaining:hex.slice(pos)};
+  return {rows,pos,remaining:hex.slice(pos),processingCode};
 }
+
+function bcd(hex){ return hex.replace(/F/gi,''); }
 
 function parseIso(hex,response=false){
   const packet=readBitmapPacket(hex,response);
-  const parsed=parseFields(packet.rest,packet.active,response);
-  return {...packet,...parsed};
+  return {...packet,...parseFields(packet.rest,packet.active,response)};
 }
 
-function parseTlv(hex, depth=0){
+function parseTlv(hex,depth=0){
   const rows=[]; let pos=0;
   while(pos+4<=hex.length){
     const start=pos; let tag=hex.slice(pos,pos+2); pos+=2;
     if((parseInt(tag,16)&0x1F)===0x1F){
       if(pos+2>hex.length) break;
       tag+=hex.slice(pos,pos+2); pos+=2;
-      while((parseInt(hex.slice(pos-2,pos),16)&0x80)!==0){
-        if(pos+2>hex.length) break;
-        tag+=hex.slice(pos,pos+2); pos+=2;
-      }
+      while((parseInt(hex.slice(pos-2,pos),16)&0x80)!==0){ if(pos+2>hex.length) break; tag+=hex.slice(pos,pos+2); pos+=2; }
     }
     if(pos+2>hex.length) break;
-    const l0=parseInt(hex.slice(pos,pos+2),16); pos+=2;
-    let len=l0;
-    if(l0&0x80){
-      const count=l0&0x7F;
-      if(count===0 || pos+count*2>hex.length) break;
-      const lenHex=hex.slice(pos,pos+count*2); pos+=count*2;
-      len=parseInt(lenHex,16);
-    }
-    const value=hex.slice(pos,pos+len*2);
-    if(value.length!==len*2) break;
-    pos+=len*2;
+    const l0=parseInt(hex.slice(pos,pos+2),16); pos+=2; let len=l0;
+    if(l0&0x80){ const count=l0&0x7F; if(count===0||pos+count*2>hex.length) break; const lenHex=hex.slice(pos,pos+count*2); pos+=count*2; len=parseInt(lenHex,16); }
+    const value=hex.slice(pos,pos+len*2); if(value.length!==len*2) break; pos+=len*2;
     const row={tag,tagName:TAGS[tag],length:len,value,depth}; rows.push(row);
-    if(['61','6F','70','77','80'].includes(tag) || TAGS[tag]?.includes('Template')){
-      const nested=parseTlv(value,depth+1); if(nested.length) row.children=nested;
-    }
+    if(['61','6F','70','77','80'].includes(tag) || TAGS[tag]?.includes('Template')){ const nested=parseTlv(value,depth+1); if(nested.length) row.children=nested; }
     if(pos<=start) break;
   }
   return rows;
 }
 
-function formatTlv(rows, lines=[], indent=''){
+function formatTlv(rows,lines=[],indent=''){
   for(const r of rows){
     lines.push(`${indent}${r.tag}${r.tagName?'  '+r.tagName:''}  [${r.length}]  ${$('hideValue').checked?'********':r.value}${r.tagName?'  ('+ascii(r.value)+')':''}`);
     if(r.children) formatTlv(r.children,lines,indent+'  ');
@@ -127,24 +139,16 @@ function formatIso(parsed){
   const lines=[];
   if(parsed.length) lines.push(`Length: ${parsed.length}`);
   if(parsed.tpdu) lines.push(`TPDU: ${parsed.tpdu}`);
-  lines.push(`MTI: ${parsed.mti}`);
-  lines.push(`Bitmap: ${parsed.bitmapHex}`);
-  lines.push(`Active fields: ${parsed.active.filter(n=>n!==1).join(', ')}`);
-  lines.push('');
+  lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,`Processing Code: ${parsed.processingCode||'-'}`,'');
   const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n);
   for(const r of rows){
-    const hide=$('hideValue').checked;
-    const asciiMode=$('convertAscii').checked || r.type.startsWith('ASCII:');
-    const display=hide?'********':(asciiMode?printable(r.valueHex):r.valueHex);
+    const display=$('hideValue').checked?'********':(($('convertAscii').checked || r.type==='BYTE')?printable(r.valueHex):r.valueHex);
     const parts=[`DE ${String(r.n).padStart(2,'0')}`];
     if($('showFieldName').checked) parts.push(r.name);
     parts.push('=',display);
     if($('showLength').checked) parts.push(`[${r.lengthInfo}]`);
     lines.push(parts.join(' '));
-    if(r.n===55 && r.valueHex){
-      const tlv=parseTlv(r.valueHex);
-      if(tlv.length){ lines.push('  EMV/TLV:'); formatTlv(tlv,lines,'    '); }
-    }
+    if(r.n===55 && r.valueHex){ const tlv=parseTlv(r.valueHex); if(tlv.length){ lines.push('  EMV/TLV:'); formatTlv(tlv,lines,'    '); } }
   }
   if(parsed.remaining) lines.push(`\nUnparsed trailing data: ${parsed.remaining}`);
   return lines.join('\n');
@@ -155,46 +159,35 @@ function formatBitmap(parsed){
   if(parsed.length) lines.push(`Length: ${parsed.length}`);
   if(parsed.tpdu) lines.push(`TPDU: ${parsed.tpdu}`);
   lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Bit  Field');
-  parsed.active.forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${fieldInfo(n)[0]}`));
+  parsed.active.forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${fieldInfo(n,state.mode!=='response',parsed.processingCode||'')[0]}`));
   return lines.join('\n');
 }
 
 function doParse(){
-  const hex=cleanHex(input.value);
-  output.classList.remove('error');
+  const hex=cleanHex(input.value); output.classList.remove('error');
   if(!hex){ output.textContent=state.mode==='tlv'?'No TLV data.':'Please enter valid Hex code'; return; }
   if(!validHex(hex)){ output.textContent='Invalid Hex code'; output.classList.add('error'); return; }
   try{
-    if(state.mode==='tlv'){
-      const rows=parseTlv(hex);
-      output.textContent=formatTlv(rows).join('\n') || 'No valid TLV data';
-      packetTitle.textContent='TLV / EMV Result'; meta.textContent=`${hex.length/2} bytes`; return;
-    }
-    if(state.mode==='other'){
-      output.textContent=$('convertAscii').checked?ascii(hex):hex;
-      packetTitle.textContent='Other'; meta.textContent=`${hex.length/2} bytes`; return;
-    }
-    const parsed=parseIso(hex,state.mode==='response' || state.mode==='bitmap');
+    if(state.mode==='tlv'){ const rows=parseTlv(hex); output.textContent=formatTlv(rows).join('\n')||'No valid TLV data'; packetTitle.textContent='TLV / EMV Result'; meta.textContent=`${hex.length/2} bytes`; return; }
+    if(state.mode==='other'){ output.textContent=$('convertAscii').checked?ascii(hex):hex; packetTitle.textContent='Other'; meta.textContent=`${hex.length/2} bytes`; return; }
+    const response=state.mode==='response';
+    const parsed=parseIso(hex,response);
     packetTitle.textContent='ISO8583 Result';
-    meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes`;
+    meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;
     output.textContent=(state.mode==='bitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);
-  }catch(e){
-    output.textContent=`Invalid packet: ${e.message}`;
-    output.classList.add('error');
-  }
+  }catch(e){ output.textContent=`Invalid packet: ${e.message}`; output.classList.add('error'); }
 }
 
 document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>{
-  document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));
-  btn.classList.add('active'); state.mode=btn.dataset.mode;
-  if(SAMPLES[state.mode]) input.value=SAMPLES[state.mode];
-  doParse();
+  document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); state.mode=btn.dataset.mode;
+  if(SAMPLES[state.mode]) input.value=SAMPLES[state.mode]; doParse();
 }));
 $('parseBtn').addEventListener('click',doParse);
 $('sampleBtn').addEventListener('click',()=>{ input.value=SAMPLES[state.mode]||''; doParse(); });
 $('clearBtn').addEventListener('click',()=>{ input.value=''; output.textContent='Enter a packet and click Parse.'; packetTitle.textContent='Result'; meta.textContent=''; });
 $('copyBtn').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(output.textContent); $('copyBtn').textContent='Copied'; setTimeout(()=>$('copyBtn').textContent='Copy',900); }catch{} });
-['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder'].forEach(id=>$(id).addEventListener('change',doParse));
+['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id).addEventListener('change',doParse));
 
-input.value=SAMPLES.request;
-doParse();
+p2peMode.checked=localStorage.getItem('bitmap-parser-p2pe')==='true';
+p2peMode.addEventListener('change',()=>localStorage.setItem('bitmap-parser-p2pe',String(p2peMode.checked)));
+input.value=SAMPLES.request; doParse();
