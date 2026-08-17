@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ISO8583 / Bitmap / TLV packet parser" />
+  <title>Bitmap Parser</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Bitmap Parser</h1>
+      <p>ISO8583 · Bitmap · TLV / EMV</p>
+    </div>
+    <button id="clearBtn" class="secondary">Clear</button>
+  </header>
+
+  <main class="layout">
+    <section class="panel input-panel">
+      <div class="mode-row" id="modeRow">
+        <button class="mode active" data-mode="request">Request</button>
+        <button class="mode" data-mode="response">Response</button>
+        <button class="mode" data-mode="bitmap">Bitmap</button>
+        <button class="mode" data-mode="tlv">TLV Parser</button>
+        <button class="mode" data-mode="other">Other</button>
+      </div>
+
+      <textarea id="input" spellcheck="false" placeholder="Paste HEX packet here..."></textarea>
+
+      <div class="options">
+        <label><input id="showBitmap" type="checkbox" /> Show Bitmap</label>
+        <label><input id="showFieldName" type="checkbox" checked /> Field Name</label>
+        <label><input id="showLength" type="checkbox" /> Length</label>
+        <label><input id="convertAscii" type="checkbox" /> Convert ASCII</label>
+        <label><input id="hideValue" type="checkbox" /> Hide Value</label>
+        <label><input id="originalOrder" type="checkbox" /> Original Order</label>
+      </div>
+
+      <div class="action-row">
+        <button id="parseBtn" class="primary">Parse</button>
+        <button id="sampleBtn" class="secondary">Sample</button>
+      </div>
+    </section>
+
+    <section class="panel result-panel">
+      <div class="result-head">
+        <div>
+          <h2 id="packetTitle">Result</h2>
+          <div id="meta" class="meta"></div>
+        </div>
+        <button id="copyBtn" class="secondary">Copy</button>
+      </div>
+      <pre id="output" class="output">Enter a packet and click Parse.</pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
