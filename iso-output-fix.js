@@ -26,16 +26,20 @@
     for (const row of rows) {
       const isLlvar = row.type === 'LLVAR' || row.type === 'LLVAR_DYNAMIC';
       const lenTag = isLlvar ? String(row.lengthInfo || '').split(' / ')[0] : '';
-      let value = hide ? '********' : (convert ? window.__isoAscii(row.valueHex) : row.valueHex);
+      const value = hide ? '********' : (convert ? window.__isoAscii(row.valueHex) : row.valueHex);
 
-      // LLVAR display: length prefix + space + packet data.
-      // Parsing itself remains unchanged and is based only on HEX characters.
-      if (isLlvar && !hide) value = `${lenTag} ${value}`;
+      const number = String(row.n).padStart(3, ' ');
+      const parts = [number];
 
-      const parts = [String(row.n).padStart(3, ' ')];
-      if (showName) parts.push(row.name);
+      // Field Name replaces the optional Length display position.
+      // Examples:
+      // 3   (Processing Code) = 920001
+      // 3   (6) = 920001
+      // 3   (Processing Code) (6) = 920001
+      if (showName) parts.push(`(${row.name})`);
       if (showLength) parts.push(`(${row.lengthInfo})`);
-      parts.push('=', value);
+
+      parts.push('=', isLlvar && !hide ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
 
@@ -55,7 +59,6 @@
       }
       if (skip && /^DE\s+\d+\s*=/.test(line.trim())) skip = false;
       if (skip) continue;
-
       cleaned.push(line.replace(/^(\s*)DE\s+(\d{1,3})(\s*=)/, '$1$2$3'));
     }
     return cleaned.join('\n');
@@ -78,7 +81,6 @@
     if (updating || !isIsoMode()) return;
     const text = output.textContent || '';
     if (!text) return;
-
     const result = removeNestedTlvAndNormalize(text);
     if (result !== text) {
       updating = true;
