@@ -42,9 +42,10 @@ function bytes(hex){ const a=[]; for(let i=0;i<hex.length;i+=2)a.push(parseInt(h
 function ascii(hex){ return bytes(hex).map(b => b>=32 && b<=126 ? String.fromCharCode(b) : '.').join(''); }
 function printable(hex){ return ascii(hex); }
 function bitmapBits(hex){ let bits=''; for(const b of bytes(hex)) bits += b.toString(2).padStart(8,'0'); return bits; }
+function bcd(hex){ return hex.replace(/F/gi,''); }
 
 function getPacketPrefix(hex,response){
-  if(response) return { tpdu:hex.slice(0,10), mti:hex.slice(10,14), bitmapStart:14 };
+  if(response) return { length:'', tpdu:hex.slice(0,10), mti:hex.slice(10,14), bitmapStart:14 };
   return { length:hex.slice(0,4), tpdu:hex.slice(4,14), mti:hex.slice(14,18), bitmapStart:18 };
 }
 
@@ -85,22 +86,22 @@ function parseFields(hex,active,response=false){
       if(pos+hexLen>hex.length) throw new Error(`DE ${n} value is incomplete`);
       valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen; lengthInfo=`${len} bytes`;
     } else {
-      const lengthDigits=len;
-      if(pos+lengthDigits>hex.length) throw new Error(`DE ${n} length is incomplete`);
-      const lenDigits=hex.slice(pos,pos+lengthDigits); pos+=lengthDigits;
+      // Android IsoDataReader: field.len is the number of BYTES occupied by LLVAR length.
+      // Therefore len=2 means 4 HEX characters (e.g. 0084), not 2 HEX characters (00).
+      const lengthHexChars=len*2;
+      if(pos+lengthHexChars>hex.length) throw new Error(`DE ${n} length is incomplete`);
+      const lenDigits=hex.slice(pos,pos+lengthHexChars); pos+=lengthHexChars;
       if(!/^\d+$/.test(lenDigits)) throw new Error(`DE ${n} has invalid LLVAR length: ${lenDigits}`);
       declaredLength=parseInt(lenDigits,10);
-      const hexLen=declaredLength*2;
-      if(pos+hexLen>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
-      valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen; lengthInfo=`${declaredLength} bytes (LLVAR/${lengthDigits})`;
+      const valueHexChars=declaredLength*2;
+      if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
+      valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars; lengthInfo=`${declaredLength} bytes (LLVAR/${lengthHexChars} HEX chars)`;
     }
     rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
     if(n===3) processingCode=bcd(valueHex);
   }
   return {rows,pos,remaining:hex.slice(pos),processingCode};
 }
-
-function bcd(hex){ return hex.replace(/F/gi,''); }
 
 function parseIso(hex,response=false){
   const packet=readBitmapPacket(hex,response);
@@ -188,6 +189,8 @@ $('clearBtn').addEventListener('click',()=>{ input.value=''; output.textContent=
 $('copyBtn').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(output.textContent); $('copyBtn').textContent='Copied'; setTimeout(()=>$('copyBtn').textContent='Copy',900); }catch{} });
 ['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id).addEventListener('change',doParse));
 
+// Field Name is intentionally OFF by default, matching the requested default UI.
+$('showFieldName').checked=false;
 p2peMode.checked=localStorage.getItem('bitmap-parser-p2pe')==='true';
 p2peMode.addEventListener('change',()=>localStorage.setItem('bitmap-parser-p2pe',String(p2peMode.checked)));
 input.value=SAMPLES.request; doParse();
