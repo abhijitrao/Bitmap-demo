@@ -10,11 +10,11 @@
     return mode === 'request' || mode === 'response';
   }
 
-  function removeNestedEmvBlock() {
+  function cleanIsoOutput() {
     if (updating || !isIsoMode()) return;
 
     const text = output.textContent || '';
-    if (!text.includes('  EMV/TLV:')) return;
+    if (!text) return;
 
     const lines = text.split('\n');
     const cleaned = [];
@@ -26,12 +26,15 @@
         continue;
       }
 
-      // The nested TLV block belongs to DE55 and ends when the next DE line starts.
+      // Nested TLV output belongs to DE55 and is not shown in ISO result.
       if (skip && /^DE\s+\d+\s*=/.test(line.trim())) {
         skip = false;
       }
 
-      if (!skip) cleaned.push(line);
+      if (skip) continue;
+
+      // ISO result should show field number without the DE prefix.
+      cleaned.push(line.replace(/^(\s*)DE\s+(\d{1,3})(\s*=)/, '$1$2$3'));
     }
 
     const result = cleaned.join('\n');
@@ -42,12 +45,12 @@
     }
   }
 
-  const observer = new MutationObserver(removeNestedEmvBlock);
+  const observer = new MutationObserver(cleanIsoOutput);
   observer.observe(output, { childList: true, characterData: true, subtree: true });
 
   document.getElementById('modeRow')?.addEventListener('click', () => {
-    setTimeout(removeNestedEmvBlock, 0);
+    setTimeout(cleanIsoOutput, 0);
   });
 
-  removeNestedEmvBlock();
+  cleanIsoOutput();
 })();
