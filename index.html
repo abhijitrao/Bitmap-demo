@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="ISO8583 / Bitmap / TLV / EMV packet parser" />
   <title>Bitmap Parser</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <header class="topbar">
@@ -19,7 +19,7 @@
       </div>
       <textarea id="input" spellcheck="false" placeholder="Paste HEX packet here..."></textarea>
       <div class="options">
-        <label><input id="showBitmap" type="checkbox" /> Show Bitmap</label><label><input id="showFieldName" type="checkbox" checked /> Field Name</label><label><input id="showLength" type="checkbox" /> Length</label><label><input id="convertAscii" type="checkbox" /> Convert ASCII</label><label><input id="hideValue" type="checkbox" /> Hide Value</label><label><input id="originalOrder" type="checkbox" /> Original Order</label><label><input id="p2peMode" type="checkbox" /> P2PE Field Format</label>
+        <label><input id="showBitmap" type="checkbox" /> Show Bitmap</label><label><input id="showFieldName" type="checkbox" /> Field Name</label><label><input id="showLength" type="checkbox" /> Length</label><label><input id="convertAscii" type="checkbox" /> Convert ASCII</label><label><input id="hideValue" type="checkbox" /> Hide Value</label><label><input id="originalOrder" type="checkbox" /> Original Order</label><label><input id="p2peMode" type="checkbox" /> P2PE Field Format</label>
       </div>
       <div class="action-row"><button id="parseBtn" class="primary">Parse</button><button id="sampleBtn" class="secondary">Sample</button></div>
     </section>
@@ -28,10 +28,8 @@
       <pre id="output" class="output">Enter a packet and click Parse.</pre>
     </section>
   </main>
-  <script src="app.js?v=2"></script>
-  <script src="android-parser-fix.js?v=4"></script>
-  <script src="android-parser-exact.js?v=5"></script>
-  <script src="custom-fields.js?v=2"></script>
-  <script src="settings.js?v=2"></script>
+  <script src="app.js?v=3"></script>
+  <script src="custom-fields.js?v=3"></script>
+  <script src="settings.js?v=3"></script>
 </body>
 </html>
