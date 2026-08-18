@@ -30,12 +30,11 @@ const FIELDS = {
   48:['Connection code and date time stamp','LLVAR',2], 49:['Transaction Currency Code','BCD',2], 51:['Cardholder currency code','BCD',2],
   52:['Pin Block','BYTE',8], 53:['CVV / AES PIN Block','LLVAR_DYNAMIC',0], 54:['Additional Amount','LLVAR',2],
   55:['ICC Data','LLVAR',2], 56:['Previous ROC, Date, Time in Reversal case','LLVAR_DYNAMIC',0], 57:['Track2 Encrypted','LLVAR',2],
-  58:['Card Indicator and Response Message','LLVAR',2], 59:['DCC detail / RSA Key in Request, Advice in response','LLVAR',2],
+  58:['Card Indicator and Response Message','LLVAR',2], 59:['DCC detail / RSA Key in Request, Advice in response','LLVAR',2'],
   60:['Batch No','LLVAR',2], 61:['Bank Details','LLVAR',2], 62:['Invoice No','LLVAR',2], 63:['Promo Details','LLVAR',2]
 };
 
 const SPECIAL_PROCESSING_CODES_FOR_DE56 = new Set(['982002','982004','960321']);
-
 function cleanHex(s){ return s.replace(/\s+/g,'').replace(/0x/gi,'').toUpperCase(); }
 function validHex(s){ return /^[0-9A-F]*$/.test(s) && s.length % 2 === 0; }
 function bytes(hex){ const a=[]; for(let i=0;i<hex.length;i+=2)a.push(parseInt(hex.slice(i,i+2),16)); return a; }
@@ -43,154 +42,14 @@ function ascii(hex){ return bytes(hex).map(b => b>=32 && b<=126 ? String.fromCha
 function printable(hex){ return ascii(hex); }
 function bitmapBits(hex){ let bits=''; for(const b of bytes(hex)) bits += b.toString(2).padStart(8,'0'); return bits; }
 function bcd(hex){ return hex.replace(/F/gi,''); }
-
-function getPacketPrefix(hex,response){
-  if(response) return { length:'', tpdu:hex.slice(0,10), mti:hex.slice(10,14), bitmapStart:14 };
-  return { length:hex.slice(0,4), tpdu:hex.slice(4,14), mti:hex.slice(14,18), bitmapStart:18 };
-}
-
-function readBitmapPacket(hex,response=false){
-  const prefix=getPacketPrefix(hex,response);
-  if(prefix.bitmapStart+16>hex.length) throw new Error('Bitmap is incomplete');
-  let pos=prefix.bitmapStart;
-  let bitmapHex=hex.slice(pos,pos+16); pos+=16;
-  let bits=bitmapBits(bitmapHex);
-  if(bits[0]==='1'){
-    if(pos+16>hex.length) throw new Error('Secondary bitmap is incomplete');
-    bitmapHex+=hex.slice(pos,pos+16); pos+=16; bits=bitmapBits(bitmapHex);
-  }
-  const active=[]; [...bits].forEach((v,i)=>v==='1'&&active.push(i+1));
-  return {...prefix,bitmapHex,bits,active,rest:hex.slice(pos),prefixEnd:pos};
-}
-
-function fieldInfo(n,isReq,processingCode=''){
-  const base=FIELDS[n];
-  if(!base) return [`Field ${n}`,'LLVAR',2];
-  const [name,type,len]=base;
-  if(n===12) return [name,'BCD',isReq?3:6];
-  if(n===46 && !p2peMode.checked) return [`Field ${n}`,'UNSUPPORTED',0];
-  if(n===53) return [p2peMode.checked?'AES PIN Block':'CVV','LLVAR',p2peMode.checked?1:2];
-  if(n===56) return [name,'LLVAR',isReq && !SPECIAL_PROCESSING_CODES_FOR_DE56.has(processingCode)?1:2];
-  return [name,type,len];
-}
-
-function parseFields(hex,active,response=false){
-  let pos=0; const rows=[]; let processingCode='';
-  for(const n of active){
-    if(n===1) continue;
-    const [name,type,len]=fieldInfo(n,!response,processingCode);
-    if(type==='UNSUPPORTED') throw new Error(`DE ${n} is not configured in Android parser (enable P2PE for DE46)`);
-    let valueHex='',lengthInfo='',declaredLength=null;
-    if(type==='FIXED'||type==='BCD'||type==='BYTE'){
-      const hexLen=len*2;
-      if(pos+hexLen>hex.length) throw new Error(`DE ${n} value is incomplete`);
-      valueHex=hex.slice(pos,pos+hexLen); pos+=hexLen; lengthInfo=`${len} bytes`;
-    } else {
-      // Android IsoDataReader: field.len is the number of BYTES occupied by LLVAR length.
-      // Therefore len=2 means 4 HEX characters (e.g. 0084), not 2 HEX characters (00).
-      const lengthHexChars=len*2;
-      if(pos+lengthHexChars>hex.length) throw new Error(`DE ${n} length is incomplete`);
-      const lenDigits=hex.slice(pos,pos+lengthHexChars); pos+=lengthHexChars;
-      if(!/^\d+$/.test(lenDigits)) throw new Error(`DE ${n} has invalid LLVAR length: ${lenDigits}`);
-      declaredLength=parseInt(lenDigits,10);
-      const valueHexChars=declaredLength*2;
-      if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
-      valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars; lengthInfo=`${declaredLength} bytes (LLVAR/${lengthHexChars} HEX chars)`;
-    }
-    rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
-    if(n===3) processingCode=bcd(valueHex);
-  }
-  return {rows,pos,remaining:hex.slice(pos),processingCode};
-}
-
-function parseIso(hex,response=false){
-  const packet=readBitmapPacket(hex,response);
-  return {...packet,...parseFields(packet.rest,packet.active,response)};
-}
-
-function parseTlv(hex,depth=0){
-  const rows=[]; let pos=0;
-  while(pos+4<=hex.length){
-    const start=pos; let tag=hex.slice(pos,pos+2); pos+=2;
-    if((parseInt(tag,16)&0x1F)===0x1F){
-      if(pos+2>hex.length) break;
-      tag+=hex.slice(pos,pos+2); pos+=2;
-      while((parseInt(hex.slice(pos-2,pos),16)&0x80)!==0){ if(pos+2>hex.length) break; tag+=hex.slice(pos,pos+2); pos+=2; }
-    }
-    if(pos+2>hex.length) break;
-    const l0=parseInt(hex.slice(pos,pos+2),16); pos+=2; let len=l0;
-    if(l0&0x80){ const count=l0&0x7F; if(count===0||pos+count*2>hex.length) break; const lenHex=hex.slice(pos,pos+count*2); pos+=count*2; len=parseInt(lenHex,16); }
-    const value=hex.slice(pos,pos+len*2); if(value.length!==len*2) break; pos+=len*2;
-    const row={tag,tagName:TAGS[tag],length:len,value,depth}; rows.push(row);
-    if(['61','6F','70','77','80'].includes(tag) || TAGS[tag]?.includes('Template')){ const nested=parseTlv(value,depth+1); if(nested.length) row.children=nested; }
-    if(pos<=start) break;
-  }
-  return rows;
-}
-
-function formatTlv(rows,lines=[],indent=''){
-  for(const r of rows){
-    lines.push(`${indent}${r.tag}${r.tagName?'  '+r.tagName:''}  [${r.length}]  ${$('hideValue').checked?'********':r.value}${r.tagName?'  ('+ascii(r.value)+')':''}`);
-    if(r.children) formatTlv(r.children,lines,indent+'  ');
-  }
-  return lines;
-}
-
-function formatIso(parsed){
-  const lines=[];
-  if(parsed.length) lines.push(`Length: ${parsed.length}`);
-  if(parsed.tpdu) lines.push(`TPDU: ${parsed.tpdu}`);
-  lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,`Processing Code: ${parsed.processingCode||'-'}`,'');
-  const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n);
-  for(const r of rows){
-    const display=$('hideValue').checked?'********':(($('convertAscii').checked || r.type==='BYTE')?printable(r.valueHex):r.valueHex);
-    const parts=[`DE ${String(r.n).padStart(2,'0')}`];
-    if($('showFieldName').checked) parts.push(r.name);
-    parts.push('=',display);
-    if($('showLength').checked) parts.push(`[${r.lengthInfo}]`);
-    lines.push(parts.join(' '));
-    if(r.n===55 && r.valueHex){ const tlv=parseTlv(r.valueHex); if(tlv.length){ lines.push('  EMV/TLV:'); formatTlv(tlv,lines,'    '); } }
-  }
-  if(parsed.remaining) lines.push(`\nUnparsed trailing data: ${parsed.remaining}`);
-  return lines.join('\n');
-}
-
-function formatBitmap(parsed){
-  const lines=[];
-  if(parsed.length) lines.push(`Length: ${parsed.length}`);
-  if(parsed.tpdu) lines.push(`TPDU: ${parsed.tpdu}`);
-  lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Bit  Field');
-  parsed.active.forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${fieldInfo(n,state.mode!=='response',parsed.processingCode||'')[0]}`));
-  return lines.join('\n');
-}
-
-function doParse(){
-  const hex=cleanHex(input.value); output.classList.remove('error');
-  if(!hex){ output.textContent=state.mode==='tlv'?'No TLV data.':'Please enter valid Hex code'; return; }
-  if(!validHex(hex)){ output.textContent='Invalid Hex code'; output.classList.add('error'); return; }
-  try{
-    if(state.mode==='tlv'){ const rows=parseTlv(hex); output.textContent=formatTlv(rows).join('\n')||'No valid TLV data'; packetTitle.textContent='TLV / EMV Result'; meta.textContent=`${hex.length/2} bytes`; return; }
-    if(state.mode==='other'){ output.textContent=$('convertAscii').checked?ascii(hex):hex; packetTitle.textContent='Other'; meta.textContent=`${hex.length/2} bytes`; return; }
-    const response=state.mode==='response';
-    const parsed=parseIso(hex,response);
-    packetTitle.textContent='ISO8583 Result';
-    meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;
-    output.textContent=(state.mode==='bitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);
-  }catch(e){ output.textContent=`Invalid packet: ${e.message}`; output.classList.add('error'); }
-}
-
-document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>{
-  document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active')); btn.classList.add('active'); state.mode=btn.dataset.mode;
-  if(SAMPLES[state.mode]) input.value=SAMPLES[state.mode]; doParse();
-}));
-$('parseBtn').addEventListener('click',doParse);
-$('sampleBtn').addEventListener('click',()=>{ input.value=SAMPLES[state.mode]||''; doParse(); });
-$('clearBtn').addEventListener('click',()=>{ input.value=''; output.textContent='Enter a packet and click Parse.'; packetTitle.textContent='Result'; meta.textContent=''; });
-$('copyBtn').addEventListener('click',async()=>{ try{ await navigator.clipboard.writeText(output.textContent); $('copyBtn').textContent='Copied'; setTimeout(()=>$('copyBtn').textContent='Copy',900); }catch{} });
-['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id).addEventListener('change',doParse));
-
-// Field Name is intentionally OFF by default, matching the requested default UI.
-$('showFieldName').checked=false;
-p2peMode.checked=localStorage.getItem('bitmap-parser-p2pe')==='true';
-p2peMode.addEventListener('change',()=>localStorage.setItem('bitmap-parser-p2pe',String(p2peMode.checked)));
-input.value=SAMPLES.request; doParse();
+function getPacketPrefix(hex,response){ return response ? {length:'',tpdu:hex.slice(0,10),mti:hex.slice(10,14),bitmapStart:14} : {length:hex.slice(0,4),tpdu:hex.slice(4,14),mti:hex.slice(14,18),bitmapStart:18}; }
+function readBitmapPacket(hex,response=false){ const prefix=getPacketPrefix(hex,response); if(prefix.bitmapStart+16>hex.length) throw new Error('Bitmap is incomplete'); let pos=prefix.bitmapStart; let bitmapHex=hex.slice(pos,pos+16); pos+=16; let bits=bitmapBits(bitmapHex); if(bits[0]==='1'){if(pos+16>hex.length) throw new Error('Secondary bitmap is incomplete'); bitmapHex+=hex.slice(pos,pos+16);pos+=16;bits=bitmapBits(bitmapHex);} const active=[];[...bits].forEach((v,i)=>v==='1'&&active.push(i+1));return {...prefix,bitmapHex,bits,active,rest:hex.slice(pos),prefixEnd:pos}; }
+function fieldInfo(n,isReq,processingCode=''){ const base=FIELDS[n];if(!base)return [`Field ${n}`,'LLVAR',2];const[name,type,len]=base;if(n===12)return[name,'BCD',isReq?3:6];if(n===46&&!p2peMode.checked)return[`Field ${n}`,'UNSUPPORTED',0];if(n===53)return[p2peMode.checked?'AES PIN Block':'CVV','LLVAR',p2peMode.checked?1:2];if(n===56)return[name,'LLVAR',isReq&&!SPECIAL_PROCESSING_CODES_FOR_DE56.has(processingCode)?1:2];return[name,type,len]; }
+function parseFields(hex,active,response=false){ let pos=0;const rows=[];let processingCode='';for(const n of active){if(n===1)continue;const[name,type,len]=fieldInfo(n,!response,processingCode);if(type==='UNSUPPORTED')throw new Error(`DE ${n} is not configured in Android parser (enable P2PE for DE46)`);let valueHex='',lengthInfo='',declaredLength=null;if(type==='FIXED'||type==='BCD'||type==='BYTE'){const hexLen=len*2;if(pos+hexLen>hex.length)throw new Error(`DE ${n} value is incomplete`);valueHex=hex.slice(pos,pos+hexLen);pos+=hexLen;lengthInfo=`${len} bytes`;}else{const lengthHexChars=len*2;if(pos+lengthHexChars>hex.length)throw new Error(`DE ${n} length is incomplete`);const lenDigits=hex.slice(pos,pos+lengthHexChars);pos+=lengthHexChars;if(!/^\d+$/.test(lenDigits))throw new Error(`DE ${n} has invalid LLVAR length: ${lenDigits}`);declaredLength=parseInt(lenDigits,10);const valueHexChars=declaredLength*2;if(pos+valueHexChars>hex.length)throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);valueHex=hex.slice(pos,pos+valueHexChars);pos+=valueHexChars;lengthInfo=`${declaredLength} bytes (LLVAR/${lengthHexChars} HEX chars)`;}rows.push({n,name,type,valueHex,lengthInfo,declaredLength});if(n===3)processingCode=bcd(valueHex);}return{rows,pos,remaining:hex.slice(pos),processingCode}; }
+function parseIso(hex,response=false){const packet=readBitmapPacket(hex,response);return{...packet,...parseFields(packet.rest,packet.active,response)};}
+function parseTlv(hex,depth=0){const rows=[];let pos=0;while(pos+4<=hex.length){const start=pos;let tag=hex.slice(pos,pos+2);pos+=2;if((parseInt(tag,16)&0x1F)===0x1F){if(pos+2>hex.length)break;tag+=hex.slice(pos,pos+2);pos+=2;while((parseInt(hex.slice(pos-2,pos),16)&0x80)!==0){if(pos+2>hex.length)break;tag+=hex.slice(pos,pos+2);pos+=2;}}if(pos+2>hex.length)break;const l0=parseInt(hex.slice(pos,pos+2),16);pos+=2;let len=l0;if(l0&0x80){const count=l0&0x7F;if(count===0||pos+count*2>hex.length)break;const lenHex=hex.slice(pos,pos+count*2);pos+=count*2;len=parseInt(lenHex,16);}const value=hex.slice(pos,pos+len*2);if(value.length!==len*2)break;pos+=len*2;const row={tag,tagName:TAGS[tag],length:len,value,depth};rows.push(row);if(['61','6F','70','77','80'].includes(tag)||TAGS[tag]?.includes('Template')){const nested=parseTlv(value,depth+1);if(nested.length)row.children=nested;}if(pos<=start)break;}return rows;}
+function formatTlv(rows,lines=[],indent=''){for(const r of rows){lines.push(`${indent}${r.tag}${r.tagName?'  '+r.tagName:''}  [${r.length}]  ${$('hideValue').checked?'********':r.value}${r.tagName?'  ('+ascii(r.value)+')':''}`);if(r.children)formatTlv(r.children,lines,indent+'  ');}return lines;}
+function formatIso(parsed){const lines=[];if(parsed.length)lines.push(`Length: ${parsed.length}`);if(parsed.tpdu)lines.push(`TPDU: ${parsed.tpdu}`);lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,`Processing Code: ${parsed.processingCode||'-'}`,'');const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n);for(const r of rows){const display=$('hideValue').checked?'********':(($('convertAscii').checked||r.type==='BYTE')?printable(r.valueHex):r.valueHex);const parts=[String(r.n).padStart(2,'0')];if($('showFieldName').checked)parts.push(r.name);parts.push('=',display);if($('showLength').checked)parts.push(`[${r.lengthInfo}]`);lines.push(parts.join(' '));}if(parsed.remaining)lines.push(`\nUnparsed trailing data: ${parsed.remaining}`);return lines.join('\n');}
+function formatBitmap(parsed){const lines=[];if(parsed.length)lines.push(`Length: ${parsed.length}`);if(parsed.tpdu)lines.push(`TPDU: ${parsed.tpdu}`);lines.push(`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Bit  Field');parsed.active.forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${fieldInfo(n,state.mode!=='response',parsed.processingCode||'')[0]}`));return lines.join('\n');}
+function doParse(){const hex=cleanHex(input.value);output.classList.remove('error');if(!hex){output.textContent=state.mode==='tlv'?'No TLV data.':'Please enter valid Hex code';return;}if(!validHex(hex)){output.textContent='Invalid Hex code';output.classList.add('error');return;}try{if(state.mode==='tlv'){const rows=parseTlv(hex);output.textContent=formatTlv(rows).join('\n')||'No valid TLV data';packetTitle.textContent='TLV / EMV Result';meta.textContent=`${hex.length/2} bytes`;return;}if(state.mode==='other'){output.textContent=$('convertAscii').checked?ascii(hex):hex;packetTitle.textContent='Other';meta.textContent=`${hex.length/2} bytes`;return;}const response=state.mode==='response';const parsed=parseIso(hex,response);packetTitle.textContent='ISO8583 Result';meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;output.textContent=(state.mode==='bitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);}catch(e){output.textContent=`Invalid packet: ${e.message}`;output.classList.add('error');}}
+document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));btn.classList.add('active');state.mode=btn.dataset.mode;if(SAMPLES[state.mode])input.value=SAMPLES[state.mode];doParse();}));$('parseBtn').addEventListener('click',doParse);$('sampleBtn').addEventListener('click',()=>{input.value=SAMPLES[state.mode]||'';doParse();});$('clearBtn').addEventListener('click',()=>{input.value='';output.textContent='Enter a packet and click Parse.';packetTitle.textContent='Result';meta.textContent='';});$('copyBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(output.textContent);$('copyBtn').textContent='Copied';setTimeout(()=>$('copyBtn').textContent='Copy',900);}catch{}});['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id).addEventListener('change',doParse));$('showFieldName').checked=false;p2peMode.checked=localStorage.getItem('bitmap-parser-p2pe')==='true';p2peMode.addEventListener('change',()=>localStorage.setItem('bitmap-parser-p2pe',String(p2peMode.checked)));input.value=SAMPLES.request;doParse();
