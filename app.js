@@ -81,12 +81,12 @@ function parseFields(hex,active,response){
       const valueHexChars=declaredLength*2;
       if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
       valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-      lengthInfo=`${lenTag} / ${valueHexChars} HEX chars`;
+      lengthInfo=valueHexChars;
     }else{
       const valueHexChars=len*2;
       if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete`);
       valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-      lengthInfo=`${valueHexChars} HEX chars`;
+      lengthInfo=valueHexChars;
     }
     rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
     if(n===3) processingCode=bcd(valueHex);
@@ -116,15 +116,16 @@ function parseTlv(hex,depth=0){
 function formatIso(parsed){
   const lines=[];
   if(parsed.length) lines.push(`Length: ${parsed.length}`);
-  lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,`Processing Code: ${parsed.processingCode||'-'}`,'');
+  lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Data Elements of Bitmap');
   const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n);
   const convert=$('convertAscii').checked;
   for(const r of rows){
-    let value=$('hideValue').checked?'********':(convert?ascii(r.valueHex):r.valueHex);
-    const parts=[`DE ${String(r.n).padStart(2,'0')}`];
+    const value=$('hideValue').checked?'********':(convert?ascii(r.valueHex):r.valueHex);
+    const number=String(r.n).padStart(3,' ');
+    const parts=[number];
     if($('showFieldName').checked) parts.push(r.name);
+    if($('showLength').checked) parts.push(`(${r.lengthInfo})`);
     parts.push('=',value);
-    if($('showLength').checked) parts.push(`[${r.lengthInfo}]`);
     lines.push(parts.join(' '));
   }
   if(parsed.remaining) lines.push('',`Unparsed trailing data: ${parsed.remaining}`);
