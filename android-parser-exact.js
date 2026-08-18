@@ -1,21 +1,30 @@
 // Android-compatible ISO8583 parser override.
+// Parsing is performed only on HEX characters. Display conversion is separate.
 (function () {
   const FIELD_NAMES = {
-    3:'Processing Code', 4:'Transaction Amount', 11:'STAN', 17:'Effective Date', 24:'Destination NII (Network International Identifier)',
-    39:'Response Code', 41:'TID', 42:'MID', 43:'Unique Txn ID', 44:'Additional Response Data', 45:'Track1', 46:'KSN details',
-    47:'User Id, Customer Id', 48:'Connection code and date time stamp', 49:'Transaction Currency Code', 51:'Cardholder currency code',
-    52:'Pin Block', 53:'CVV / AES PIN Block', 54:'Additional Amount', 55:'ICC Data', 56:'Previous ROC, Date, Time in Reversal case',
-    57:'Track2 Encrypted', 58:'Card Indicator and Response Message', 59:'DCC detail / RSA Key in Request, Advice in response',
+    3:'Processing Code', 4:'Transaction Amount', 6:'DCC final amount', 7:'Server Transmission Date And Time',
+    10:'DCC Conversion detail', 11:'STAN', 12:'Local Transaction Time / Date Time', 17:'Effective Date',
+    24:'Destination NII (Network International Identifier)', 30:'Original Amount', 37:'Retrieval Reference Number',
+    38:'Approval Code', 39:'Response Code', 41:'TID', 42:'MID', 43:'Unique Txn ID', 44:'Additional Response Data',
+    45:'Track1', 46:'KSN details', 47:'User Id, Customer Id', 48:'Connection code and date time stamp',
+    49:'Transaction Currency Code', 51:'Cardholder currency code', 52:'Pin Block', 53:'CVV / AES PIN Block',
+    54:'Additional Amount', 55:'ICC Data', 56:'Previous ROC, Date, Time in Reversal case', 57:'Track2 Encrypted',
+    58:'Card Indicator and Response Message', 59:'DCC detail / RSA Key in Request, Advice in response',
     60:'Batch No', 61:'Bank Details', 62:'Invoice No', 63:'Promo Details'
   };
-  const FIXED = {3:3,4:6,11:3,12:3,13:2,14:2,15:2,17:2,22:2,23:3,24:2,37:12,38:12,39:2,41:8,42:15,49:2,51:2,52:8};
+
+  // Lengths are the same as Iso.kt: fixed fields consume len * 2 HEX chars.
+  const FIXED = {
+    3:3, 4:6, 6:6, 7:5, 10:4, 11:3, 12:3, 13:2, 14:2, 15:2, 17:2,
+    22:2, 23:3, 24:2, 30:6, 37:12, 38:12, 39:2, 41:8, 42:15, 49:2, 51:2, 52:8
+  };
   const LLVAR = {31:1,32:1,35:2,43:2,44:2,45:2,46:2,47:2,48:2,53:2,54:2,55:2,56:2,57:2,58:2,59:2,60:2,61:2,62:2,63:2};
   const BYTE = new Set([41,42,52]);
   const SPECIAL_DE56 = new Set(['982002','982004','960321']);
 
   const clean = s => String(s || '').replace(/\s+/g,'').replace(/0x/gi,'').toUpperCase();
   const valid = s => /^[0-9A-F]*$/.test(s) && s.length % 2 === 0;
-  const ascii = hex => { let o=''; for(let i=0;i<hex.length;i+=2){const n=parseInt(hex.slice(i,i+2),16);o += n>=32&&n<=126?String.fromCharCode(n):'.';} return o; };
+  const ascii = hex => { let o=''; for(let i=0;i<hex.length;i+=2){const n=parseInt(hex.slice(i,i+2),16); o += n>=32&&n<=126?String.fromCharCode(n):'.';} return o; };
 
   function bitmapFields(bitmap) {
     const out=[];
@@ -33,7 +42,7 @@
   }
 
   function fieldSpec(n,request,processingCode) {
-    if(n===12) return {name:'Local Transaction Time / Date Time',type:'FIXED',len:request?3:6};
+    if(n===12) return {name:FIELD_NAMES[n],type:'FIXED',len:request?3:6};
     if(n===53) return {name:FIELD_NAMES[n],type:'LLVAR',len:document.getElementById('p2peMode')?.checked?1:2};
     if(n===56) return {name:FIELD_NAMES[n],type:'LLVAR',len:request && !SPECIAL_DE56.has(processingCode)?1:2};
     if(FIXED[n]) return {name:FIELD_NAMES[n] || `Field ${n}`,type:BYTE.has(n)?'BYTE':'FIXED',len:FIXED[n]};
@@ -41,14 +50,10 @@
     return {name:FIELD_NAMES[n] || `Field ${n}`,type:'UNDEFINED',len:0};
   }
 
-  // Android's LLVAR length is stored in field.len bytes. For len=2 the
-  // parser consumes 4 HEX characters such as 0022, 0138, 0007, etc.
+  // Iso.kt: length tag is len * 2 HEX characters, and its decimal text is then parsed.
   function decodeLength(lenHex) {
-    const raw=[];
-    for(let i=0;i<lenHex.length;i+=2) raw.push(parseInt(lenHex.slice(i,i+2),16));
-    if(raw.length && raw.every(b => b >= 0x30 && b <= 0x39)) return parseInt(String.fromCharCode(...raw),10);
-    if(/^\d+$/.test(lenHex)) return parseInt(lenHex,10);
-    throw new Error(`Invalid LLVAR length: ${lenHex}`);
+    if(!/^\d+$/.test(lenHex)) throw new Error(`Invalid LLVAR length: ${lenHex}`);
+    return parseInt(lenHex,10);
   }
 
   function parse(hex,response) {
@@ -62,25 +67,31 @@
     }
     const active=bitmapFields(bitmap).filter(n=>n!==1);
     const rows=[]; let processingCode='';
+
     for(const n of active) {
       const spec=fieldSpec(n,!response,processingCode);
-      if(spec.type==='UNDEFINED') { rows.push({n,name:spec.name,type:spec.type,valueHex:'',lengthInfo:'undefined'}); continue; }
+      if(spec.type==='UNDEFINED') throw new Error(`DE ${n} is not configured in Android parser`);
       let valueHex='', lengthInfo='', declaredLength=null;
+
       if(spec.type==='LLVAR') {
-        const tagHexChars=spec.len*2;
-        if(pos+tagHexChars>hex.length) throw new Error(`DE ${n} length tag is incomplete`);
-        const lenTag=hex.slice(pos,pos+tagHexChars); pos+=tagHexChars;
+        const lengthHexChars=spec.len*2;
+        if(pos+lengthHexChars>hex.length) throw new Error(`DE ${n} length tag is incomplete`);
+        const lenTag=hex.slice(pos,pos+lengthHexChars);
+        pos += lengthHexChars;
         declaredLength=decodeLength(lenTag);
         const valueHexChars=declaredLength*2;
         if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
-        valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-        lengthInfo=`${declaredLength} bytes (LLVAR/${spec.len} bytes length tag)`;
+        valueHex=hex.slice(pos,pos+valueHexChars);
+        pos += valueHexChars;
+        lengthInfo=`${lenTag} / ${valueHexChars} HEX chars`;
       } else {
         const valueHexChars=spec.len*2;
         if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete`);
-        valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-        lengthInfo=`${spec.len} bytes`;
+        valueHex=hex.slice(pos,pos+valueHexChars);
+        pos += valueHexChars;
+        lengthInfo=`${valueHexChars} HEX chars`;
       }
+
       rows.push({n,name:spec.name,type:spec.type,valueHex,lengthInfo,declaredLength});
       if(n===3) processingCode=valueHex.replace(/F/gi,'');
     }
@@ -100,8 +111,7 @@
     lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,`Processing Code: ${parsed.processingCode||'-'}`,'');
     for(const r of rows) {
       let value=hide?'********':r.valueHex;
-      if(convert && !['3','4','6','7','10','11','12','13','15','22','24','49','51','55'].includes(String(r.n))) value=ascii(r.valueHex);
-      else if(r.type==='BYTE' && !hide) value=ascii(r.valueHex);
+      if(convert && !hide) value=ascii(r.valueHex);
       const parts=[`DE ${String(r.n).padStart(2,'0')}`];
       if(showName) parts.push(r.name);
       parts.push('=',value);
@@ -138,7 +148,7 @@
 
   window.doParse = run;
   window.exactAndroidParse = run;
-  window.__androidParserVersion = '7';
+  window.__androidParserVersion = '8';
 
   window.addEventListener('DOMContentLoaded',()=>{
     ['parseBtn','showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>{
