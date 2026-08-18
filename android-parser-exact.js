@@ -34,8 +34,6 @@
 
   function fieldSpec(n,request,processingCode) {
     if(n===12) return {name:'Local Transaction Time / Date Time',type:'FIXED',len:request?3:6};
-    // Response DE39 in the Android response packet is one packed byte (2 digits), not 2 bytes.
-    if(n===39 && !request) return {name:FIELD_NAMES[n],type:'FIXED',len:1};
     if(n===53) return {name:FIELD_NAMES[n],type:'LLVAR',len:document.getElementById('p2peMode')?.checked?1:2};
     if(n===56) return {name:FIELD_NAMES[n],type:'LLVAR',len:request && !SPECIAL_DE56.has(processingCode)?1:2};
     if(FIXED[n]) return {name:FIELD_NAMES[n] || `Field ${n}`,type:BYTE.has(n)?'BYTE':'FIXED',len:FIXED[n]};
@@ -43,14 +41,12 @@
     return {name:FIELD_NAMES[n] || `Field ${n}`,type:'UNDEFINED',len:0};
   }
 
-  // Android packets use two LLVAR-length representations:
-  //   * packed/numeric bytes, e.g. 0219 => 219
-  //   * ASCII decimal bytes, e.g. 3136 ("16") => 16
-  // Support both, exactly as required by the sample response.
+  // Android's LLVAR length is stored in field.len bytes. For len=2 the
+  // parser consumes 4 HEX characters such as 0022, 0138, 0007, etc.
   function decodeLength(lenHex) {
     const raw=[];
     for(let i=0;i<lenHex.length;i+=2) raw.push(parseInt(lenHex.slice(i,i+2),16));
-    if(raw.every(b => b >= 0x30 && b <= 0x39)) return parseInt(String.fromCharCode(...raw),10);
+    if(raw.length && raw.every(b => b >= 0x30 && b <= 0x39)) return parseInt(String.fromCharCode(...raw),10);
     if(/^\d+$/.test(lenHex)) return parseInt(lenHex,10);
     throw new Error(`Invalid LLVAR length: ${lenHex}`);
   }
@@ -142,7 +138,7 @@
 
   window.doParse = run;
   window.exactAndroidParse = run;
-  window.__androidParserVersion = '6';
+  window.__androidParserVersion = '7';
 
   window.addEventListener('DOMContentLoaded',()=>{
     ['parseBtn','showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>{
