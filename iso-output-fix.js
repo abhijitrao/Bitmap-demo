@@ -4,6 +4,12 @@
 
   let updating = false;
 
+  // Same fields as Iso.kt ignoredConvertToAsciiList.
+  // When Convert ASCII is enabled, these field values must remain HEX.
+  const ignoredConvertToAsciiList = new Set([
+    3, 4, 6, 7, 10, 11, 12, 13, 15, 22, 24, 49, 51, 55
+  ]);
+
   function isIsoMode() {
     const active = document.querySelector('.mode.active');
     const mode = active?.dataset?.mode;
@@ -26,19 +32,19 @@
     for (const row of rows) {
       const isLlvar = row.type === 'LLVAR' || row.type === 'LLVAR_DYNAMIC';
       const lenTag = isLlvar ? String(row.lengthInfo || '').split(' / ')[0] : '';
-      const value = hide ? '********' : (convert ? window.__isoAscii(row.valueHex) : row.valueHex);
+
+      // Match Iso.kt ignoredConvertToAsciiList exactly:
+      // listed fields are never converted, even when Convert ASCII is checked.
+      const shouldConvert = convert && !ignoredConvertToAsciiList.has(row.n);
+      const value = hide ? '********' : (shouldConvert ? window.__isoAscii(row.valueHex) : row.valueHex);
 
       const number = String(row.n).padStart(3, ' ');
       const parts = [number];
 
-      // Field Name replaces the optional Length display position.
-      // Examples:
-      // 3   (Processing Code) = 920001
-      // 3   (6) = 920001
-      // 3   (Processing Code) (6) = 920001
       if (showName) parts.push(`(${row.name})`);
       if (showLength) parts.push(`(${row.lengthInfo})`);
 
+      // LLVAR: show the original HEX length prefix and packet data.
       parts.push('=', isLlvar && !hide ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
