@@ -5,6 +5,12 @@
   let updating = false;
   const ignoredConvertToAsciiList = new Set([3, 4, 6, 7, 10, 11, 12, 13, 15, 22, 24, 49, 51, 55]);
 
+  function isSupportedResultMode() {
+    const active = document.querySelector('.mode.active');
+    const mode = active?.dataset?.mode;
+    return mode === 'request' || mode === 'response' || mode === 'tlv' || mode === 'other';
+  }
+
   function isIsoMode() {
     const active = document.querySelector('.mode.active');
     const mode = active?.dataset?.mode;
@@ -15,7 +21,6 @@
     const showName = document.getElementById('showFieldName')?.checked;
     const showLength = document.getElementById('showLength')?.checked;
     const convert = document.getElementById('convertAscii')?.checked;
-    const hide = document.getElementById('hideValue')?.checked;
     const original = document.getElementById('originalOrder')?.checked;
     const rows = original ? parsed.rows : [...parsed.rows].sort((a, b) => a.n - b.n);
     const lines = [];
@@ -25,12 +30,12 @@
       const isLlvar = row.type === 'LLVAR' || row.type === 'LLVAR_DYNAMIC';
       const lenTag = isLlvar ? String(row.lengthInfo || '').split(' / ')[0] : '';
       const shouldConvert = convert && !ignoredConvertToAsciiList.has(row.n);
-      const value = hide ? '********' : (shouldConvert ? window.__isoAscii(row.valueHex) : row.valueHex);
+      const value = shouldConvert ? window.__isoAscii(row.valueHex) : row.valueHex;
       const number = String(row.n).padStart(3, ' ');
       const parts = [number];
       if (showName) parts.push(`(${row.name})`);
       if (showLength) parts.push(`(${row.lengthInfo})`);
-      parts.push('=', isLlvar && !hide && !convert ? `${lenTag} ${value}` : value);
+      parts.push('=', isLlvar && !convert ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
     if (parsed.remaining) lines.push('', `Unparsed trailing data: ${parsed.remaining}`);
@@ -109,12 +114,12 @@
     el.id = 'selectionLength';
     el.style.marginLeft = '12px';
     el.style.display = 'none';
-    el.textContent = 'Selected: 0';
+    el.textContent = 'Selected Length: 0';
     meta.appendChild(el);
   }
 
   function updateSelectionLength() {
-    if (!isIsoMode()) return;
+    if (!isSupportedResultMode()) return;
     ensureSelectionLengthDisplay();
     const el = document.getElementById('selectionLength');
     if (!el) return;
@@ -133,7 +138,7 @@
 
   const observer = new MutationObserver(cleanIsoOutput);
   observer.observe(output, { childList: true, characterData: true, subtree: true });
-  document.getElementById('modeRow')?.addEventListener('click', () => setTimeout(cleanIsoOutput, 0));
+  document.getElementById('modeRow')?.addEventListener('click', () => setTimeout(() => { cleanIsoOutput(); updateSelectionLength(); }, 0));
   document.addEventListener('selectionchange', updateSelectionLength);
   window.addEventListener('mouseup', updateSelectionLength);
   window.addEventListener('keyup', updateSelectionLength);
