@@ -6,8 +6,6 @@
     return [...new Set((chars || []).filter(c => typeof c === 'string' && c.length === 1))];
   }
 
-  // At every level, the first configured delimiter encountered in the input wins.
-  // Configuration order is never used as priority.
   function findNextSeparator(text) {
     const chars = getSeparators();
     let found = -1;
@@ -26,28 +24,27 @@
     const value = String(text ?? '');
     const next = findNextSeparator(value);
     if (!next) return value;
-
-    const parts = value.split(next.separator);
-    return parts.map(part => parseLevel(part));
+    return value.split(next.separator).map(part => parseLevel(part));
   }
 
   function parse(text) {
-    const input = String(text ?? '');
-    return parseLevel(input);
+    return parseLevel(String(text ?? ''));
   }
 
-  function rawLines(value, lines = [], level = 0, root = false) {
+  function rawLines(value, lines = [], level = 0) {
     const indent = '\t'.repeat(level);
     if (!Array.isArray(value)) {
       lines.push(`${indent}${value}`);
       return lines;
     }
     value.forEach((item, index) => {
+      // Keep the '=' column aligned for every index at the same nesting level.
+      const indexText = String(index).padStart(2, ' ');
       if (Array.isArray(item)) {
-        lines.push(`${indent}(${index}) =`);
-        rawLines(item, lines, level + 1, false);
+        lines.push(`${indent}(${indexText}) =`);
+        rawLines(item, lines, level + 1);
       } else {
-        lines.push(`${indent}(${index}) = ${item}`);
+        lines.push(`${indent}(${indexText}) = ${item}`);
       }
     });
     return lines;
