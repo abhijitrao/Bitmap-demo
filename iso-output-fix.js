@@ -69,7 +69,8 @@
     if (headerIndex < 0) return text;
 
     const result = [...lines];
-    result[headerIndex] = `${'DE'.padEnd(6, ' ')}${'Type'.padEnd(14, ' ')}${'Length'.padEnd(10, ' ')}Field Name`;
+    // Compact fixed columns so the table remains easy to read without excessive gaps.
+    result[headerIndex] = `${'DE'.padEnd(5, ' ')}${'Type'.padEnd(10, ' ')}${'Length'.padEnd(8, ' ')}Field Name`;
 
     for (let i = headerIndex + 1; i < result.length; i++) {
       const line = result[i];
@@ -77,7 +78,7 @@
       const match = line.match(/^\s*(\d{1,3})\s+(\S+)\s+(\S+)\s+(.+)$/);
       if (!match) continue;
       const [, de, type, length, name] = match;
-      result[i] = `${de.padEnd(6, ' ')}${type.padEnd(14, ' ')}${length.padEnd(10, ' ')}${name}`;
+      result[i] = `${de.padEnd(5, ' ')}${type.padEnd(10, ' ')}${length.padEnd(8, ' ')}${name}`;
     }
     return result.join('\n');
   }
