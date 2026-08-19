@@ -8,7 +8,7 @@ const p2peMode = $('p2peMode');
 
 const SAMPLES = {
   request: '00D360009100010800202001000081008A982003000088000036333030303030370084333531323134347E3236303431363131323433307E3236303431363131323431387E3236303431363131323433307E3236303431363131323433307E7E38337E3335363632313338303738333338347E7E7E7E7E002131375E3232333532355E31362D4170722D32303236005034413931302020426F6E7573487562202030332E30332E30312E32363033323530303134313631303830303030303030303000173134393139343733363020202020203031',
-  response: '60000100910210347001000EC1A070920001000000240000000000438500618272220005460000001748530002363232353738363638343832202020202020393934343839303036333030303030373030303030303030304C433335504B0022333732303936327E323032363038313331373438353303560392001130303A417070726F7665640136303030353333333432423035353030303539333333323030353934353445323032303230323032303230323032303230323032303230323032303230323032303333333933323441353035394135303030323030303036313832373232323036324532453030303035393435344532303230323032303230323032303230323032303230323032300092307C337C35307C3030303030303030304248303030337C42485430303030337C3030303038307C3030303735347C3030303436377C564953417C7C31303332363038313330373132373438363239303230363735353933373933347C',
+  response: '60000100910210347001000EC1A070920001000000240000000000438500618272220005460000001748530002363232353738363638343832202020202020393934343839303036333030303030373030303030303030304C433335504B0022333732303936327E323032363038313331373438353303560392001130303A417070726F7665640136303030353333333432423035353030303539333333323030353934353445323032303230323032303230323032303230323032303230323032303230323032303333333933323441353035394135303030323030303036313832373232323036324532453030303035393435344532303230323032303230323032303230323032303230323032303230323032300092307C337C35307C3030303030303030304248303030337C42485430303030337C3030303038307C3030303735347C3030303436377C564953417C7C31303332363038313330373132373438363239303230363735353933373933347C',
   tlv: '5F2A0203565F340101820219008407A00000052410109B02E8009C01009F02060000000001009F03060000000000009F0607A00000052410109F2701809F3303E0F8C89F34034203009F3501229F360202739F370436D27083'
 };
 
@@ -66,32 +66,37 @@ function readPacket(hex,response){
 }
 
 function parseFields(hex,active,response){
-  let pos=0, processingCode=''; const rows=[];
+  let pos=0, processingCode=''; const rows=[]; let error=null;
   for(const n of active){
     if(n===1) continue;
     const [name,type,len]=fieldInfo(n,!response,processingCode);
-    if(type==='UNSUPPORTED') throw new Error(`DE ${n} is not configured in Android parser (enable P2PE for DE46)`);
+    if(type==='UNSUPPORTED') { error=`DE ${n} is not configured in Android parser (enable P2PE for DE46)`; break; }
     let valueHex='', lengthInfo='', declaredLength=null;
-    if(type==='LLVAR' || type==='LLVAR_DYNAMIC'){
-      const lengthHexChars=len*2;
-      if(pos+lengthHexChars>hex.length) throw new Error(`DE ${n} length is incomplete`);
-      const lenTag=hex.slice(pos,pos+lengthHexChars); pos+=lengthHexChars;
-      if(!/^\d+$/.test(lenTag)) throw new Error(`DE ${n} has invalid LLVAR length: ${lenTag}`);
-      declaredLength=parseInt(lenTag,10);
-      const valueHexChars=declaredLength*2;
-      if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
-      valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-      lengthInfo=valueHexChars;
-    }else{
-      const valueHexChars=len*2;
-      if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete`);
-      valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
-      lengthInfo=valueHexChars;
+    try {
+      if(type==='LLVAR' || type==='LLVAR_DYNAMIC'){
+        const lengthHexChars=len*2;
+        if(pos+lengthHexChars>hex.length) throw new Error(`DE ${n} length is incomplete`);
+        const lenTag=hex.slice(pos,pos+lengthHexChars); pos+=lengthHexChars;
+        if(!/^\d+$/.test(lenTag)) throw new Error(`DE ${n} has invalid LLVAR length: ${lenTag}`);
+        declaredLength=parseInt(lenTag,10);
+        const valueHexChars=declaredLength*2;
+        if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete (declared ${declaredLength} bytes)`);
+        valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
+        lengthInfo=valueHexChars;
+      }else{
+        const valueHexChars=len*2;
+        if(pos+valueHexChars>hex.length) throw new Error(`DE ${n} value is incomplete`);
+        valueHex=hex.slice(pos,pos+valueHexChars); pos+=valueHexChars;
+        lengthInfo=valueHexChars;
+      }
+      rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
+      if(n===3) processingCode=bcd(valueHex);
+    } catch(e) {
+      error=e.message || String(e);
+      break;
     }
-    rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
-    if(n===3) processingCode=bcd(valueHex);
   }
-  return {rows,pos,remaining:hex.slice(pos),processingCode};
+  return {rows,pos,remaining:hex.slice(pos),processingCode,error};
 }
 
 function parseIso(hex,response=false){
@@ -125,11 +130,12 @@ function formatIso(parsed){
   for(const r of rows){
     const value=hideValue?'********':(convert?ascii(r.valueHex):r.valueHex);
     const number=String(r.n).padEnd(4,' ');
-    const fieldName=showFieldName?`${r.name} `:'';
+    const fieldName=showFieldName?`(${r.name}) `:'';
     const lengthText=showLength?`(${r.lengthInfo}) `:'';
-    lines.push(`${number}${lengthText}${fieldName}= ${value}`);
+    lines.push(`${number}${fieldName}${lengthText}= ${value}`);
   }
-  if(parsed.remaining) lines.push('',`Unparsed trailing data: ${parsed.remaining}`);
+  if(parsed.error) lines.push('',`Invalid packet: ${parsed.error}`);
+  else if(parsed.remaining) lines.push('',`Unparsed trailing data: ${parsed.remaining}`);
   return lines.join('\n');
 }
 window.formatIso=formatIso;
@@ -150,12 +156,13 @@ function doParse(){
     const parsed=parseIso(hex,state.mode==='response');
     packetTitle.textContent='ISO8583 Result';
     meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;
-    output.textContent=(state.mode==='bitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);
+    output.textContent=(state.mode==='showBitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);
+    if(parsed.error) output.classList.add('error');
   }catch(e){ output.textContent=`Invalid packet: ${e.message||String(e)}`; output.classList.add('error'); }
 }
 window.doParse=doParse;
 window.exactAndroidParse=doParse;
-window.__androidParserVersion='clean';
+window.__androidParserVersion='partial-error-reporting';
 
 function setMode(mode){
   state.mode=mode;
