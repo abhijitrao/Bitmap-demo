@@ -1,11 +1,7 @@
 (() => {
   const STORAGE_KEY = 'bitmapParser.customIsoFields.v1';
-  const getFields = () => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-    catch { return {}; }
-  };
+  const getFields = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; } };
   const saveFields = fields => localStorage.setItem(STORAGE_KEY, JSON.stringify(fields));
-
   const originalFieldInfo = window.fieldInfo;
   window.fieldInfo = function(fieldNo, isReq, processingCode = '') {
     const saved = getFields()[isReq ? 'request' : 'response'] || {};
@@ -13,96 +9,21 @@
     if (custom) return [custom.name || `Field ${fieldNo}`, custom.type, Number(custom.len) || 2];
     return originalFieldInfo(fieldNo, isReq, processingCode);
   };
-
   function injectStyles() {
     if (document.getElementById('customFieldStyles')) return;
-    const style = document.createElement('style');
-    style.id = 'customFieldStyles';
-    style.textContent = `
-      .settings-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
-      .settings-modal.open{display:flex}.settings-card{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
-      .settings-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}.settings-head h2{margin:0}
-      .field-form{display:grid;grid-template-columns:90px 1fr 120px 100px auto;gap:8px;align-items:end;margin-bottom:18px}
-      .field-form label{font-size:12px;font-weight:600}.field-form input,.field-form select{width:100%;box-sizing:border-box;padding:9px;border:1px solid #ccd2d8;border-radius:7px;margin-top:4px}
-      .field-list{display:flex;flex-direction:column;gap:8px}.custom-field-row{display:grid;grid-template-columns:55px 1fr 90px 80px auto;gap:8px;align-items:center;padding:9px 10px;border:1px solid #e1e5e9;border-radius:8px}
-      .empty-fields{color:#777;padding:12px 0}.settings-tabs{display:flex;gap:6px;margin-bottom:14px}.settings-tab{border:1px solid #ccd2d8;background:#f6f7f8;border-radius:7px;padding:7px 12px;cursor:pointer}.settings-tab.active{background:#e8eef8}
-      @media(max-width:650px){.field-form{grid-template-columns:1fr 1fr}.custom-field-row{grid-template-columns:45px 1fr 70px 70px auto}}
-    `;
+    const style = document.createElement('style'); style.id='customFieldStyles';
+    style.textContent=`.iso-fields-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}.iso-fields-modal.open{display:flex}.iso-fields-card{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.iso-fields-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}.iso-fields-head h2{margin:0}.field-form{display:grid;grid-template-columns:90px 1fr 120px 100px auto;gap:8px;align-items:end;margin-bottom:18px}.field-form label{font-size:12px;font-weight:600}.field-form input,.field-form select{width:100%;box-sizing:border-box;padding:9px;border:1px solid #ccd2d8;border-radius:7px;margin-top:4px}.field-list{display:flex;flex-direction:column;gap:8px}.custom-field-row{display:grid;grid-template-columns:55px 1fr 90px 80px auto;gap:8px;align-items:center;padding:9px 10px;border:1px solid #e1e5e9;border-radius:8px}.empty-fields{color:#777;padding:12px 0}.settings-tabs{display:flex;gap:6px;margin-bottom:14px}.settings-tab{border:1px solid #ccd2d8;background:#f6f7f8;border-radius:7px;padding:7px 12px;cursor:pointer}.settings-tab.active{background:#e8eef8}@media(max-width:650px){.field-form{grid-template-columns:1fr 1fr}.custom-field-row{grid-template-columns:45px 1fr 70px 70px auto}}`;
     document.head.appendChild(style);
   }
-
-  function openSettings() {
-    injectStyles();
-    let modal = document.getElementById('settingsModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'settingsModal'; modal.className = 'settings-modal';
-      modal.innerHTML = `
-        <div class="settings-card">
-          <div class="settings-head"><h2>ISO Field Settings</h2><button id="settingsClose" class="secondary">Close</button></div>
-          <div class="settings-tabs">
-            <button class="settings-tab active" data-side="request">Request</button>
-            <button class="settings-tab" data-side="response">Response</button>
-          </div>
-          <div class="field-form">
-            <label>Field No<input id="cfNo" type="number" min="1" max="128"></label>
-            <label>Field Name<input id="cfName" type="text" placeholder="Custom field"></label>
-            <label>Type<select id="cfType"><option value="BCD">BCD</option><option value="LLVAR">LLVAR</option><option value="BYTE">BYTE</option></select></label>
-            <label id="cfLenLabel">Length<input id="cfLen" type="number" min="1" max="999"></label>
-            <button id="cfAdd" class="primary">Add</button>
-          </div>
-          <div id="customFieldList" class="field-list"></div>
-          <div style="display:flex;justify-content:flex-end;margin-top:14px"><button id="cfReset" class="secondary">Reset Custom Fields</button></div>
-        </div>`;
-      document.body.appendChild(modal);
-      modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
-      document.getElementById('settingsClose').onclick = () => modal.classList.remove('open');
-      modal.querySelectorAll('.settings-tab').forEach(tab => tab.onclick = () => {
-        modal.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active'); renderList(tab.dataset.side);
-      });
-      document.getElementById('cfType').onchange = updateLengthLabel;
-      document.getElementById('cfAdd').onclick = addField;
-      document.getElementById('cfReset').onclick = () => {
-        const fields = getFields(); delete fields[currentSide()]; saveFields(fields); renderList(currentSide());
-      };
-    }
-    modal.classList.add('open');
-    renderList(currentSide());
+  function openSettings(){
+    injectStyles(); let modal=document.getElementById('settingsModal');
+    if(!modal){modal=document.createElement('div');modal.id='settingsModal';modal.className='iso-fields-modal';modal.innerHTML=`<div class="iso-fields-card"><div class="iso-fields-head"><h2>ISO Field Settings</h2><button id="settingsClose" class="secondary">Close</button></div><div class="settings-tabs"><button class="settings-tab active" data-side="request">Request</button><button class="settings-tab" data-side="response">Response</button></div><div class="field-form"><label>Field No<input id="cfNo" type="number" min="1" max="128"></label><label>Field Name<input id="cfName" type="text" placeholder="Custom field"></label><label>Type<select id="cfType"><option value="BCD">BCD</option><option value="LLVAR">LLVAR</option><option value="BYTE">BYTE</option></select></label><label id="cfLenLabel">Length<input id="cfLen" type="number" min="1" max="999"></label><button id="cfAdd" class="primary">Add</button></div><div id="customFieldList" class="field-list"></div><div style="display:flex;justify-content:flex-end;margin-top:14px"><button id="cfReset" class="secondary">Reset Custom Fields</button></div></div>`;document.body.appendChild(modal);modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open')});document.getElementById('settingsClose').onclick=()=>modal.classList.remove('open');modal.querySelectorAll('.settings-tab').forEach(tab=>tab.onclick=()=>{modal.querySelectorAll('.settings-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');renderList(tab.dataset.side)});document.getElementById('cfType').onchange=updateLengthLabel;document.getElementById('cfAdd').onclick=addField;document.getElementById('cfReset').onclick=()=>{const fields=getFields();delete fields[currentSide()];saveFields(fields);renderList(currentSide())};}
+    modal.classList.add('open'); renderList(currentSide());
   }
-
-  function currentSide() { return document.querySelector('.settings-tab.active')?.dataset.side || 'request'; }
-  function updateLengthLabel() {
-    const type = document.getElementById('cfType').value;
-    document.getElementById('cfLenLabel').firstChild.textContent = type === 'LLVAR' ? 'Length Digits' : 'Length Bytes';
-  }
-  function addField() {
-    const no = Number(document.getElementById('cfNo').value);
-    const name = document.getElementById('cfName').value.trim();
-    const type = document.getElementById('cfType').value;
-    const len = Number(document.getElementById('cfLen').value);
-    if (!no || no < 1 || no > 128 || !name || !len) { alert('Enter valid Field No, Field Name and Length.'); return; }
-    const fields = getFields(); fields[currentSide()] ||= {};
-    fields[currentSide()][String(no)] = { name, type, len }; saveFields(fields); renderList(currentSide());
-    document.getElementById('cfNo').value = ''; document.getElementById('cfName').value = ''; document.getElementById('cfLen').value = '';
-  }
-  function renderList(side) {
-    const list = document.getElementById('customFieldList'); if (!list) return;
-    const fields = getFields()[side] || {}; const entries = Object.entries(fields).sort((a,b) => Number(a[0])-Number(b[0]));
-    if (!entries.length) { list.innerHTML = '<div class="empty-fields">No custom fields configured.</div>'; return; }
-    list.innerHTML = entries.map(([no, f]) => `<div class="custom-field-row"><b>DE ${no}</b><span>${escapeHtml(f.name)}</span><span>${f.type}</span><span>${f.len}</span><button class="secondary" data-delete="${no}">Delete</button></div>`).join('');
-    list.querySelectorAll('[data-delete]').forEach(btn => btn.onclick = () => {
-      const all = getFields(); delete all[side]?.[btn.dataset.delete]; saveFields(all); renderList(side);
-    });
-  }
-  function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const header = document.querySelector('.topbar');
-    const button = document.createElement('button'); button.className = 'secondary'; button.textContent = 'ISO Fields'; button.onclick = openSettings;
-    header?.appendChild(button);
-    const p2pe = document.getElementById('p2peMode');
-    if (p2pe) p2pe.checked = localStorage.getItem('bitmapParser.p2pe') === 'true';
-    p2pe?.addEventListener('change', () => localStorage.setItem('bitmapParser.p2pe', String(p2pe.checked)));
-  });
+  function currentSide(){return document.querySelector('.settings-tab.active')?.dataset.side||'request'}
+  function updateLengthLabel(){document.getElementById('cfLenLabel').firstChild.textContent=document.getElementById('cfType').value==='LLVAR'?'Length Digits':'Length Bytes'}
+  function addField(){const no=Number(document.getElementById('cfNo').value),name=document.getElementById('cfName').value.trim(),type=document.getElementById('cfType').value,len=Number(document.getElementById('cfLen').value);if(!no||no<1||no>128||!name||!len){alert('Enter valid Field No, Field Name and Length.');return}const fields=getFields();fields[currentSide()]||={};fields[currentSide()][String(no)]={name,type,len};saveFields(fields);renderList(currentSide());document.getElementById('cfNo').value='';document.getElementById('cfName').value='';document.getElementById('cfLen').value=''}
+  function renderList(side){const list=document.getElementById('customFieldList');if(!list)return;const fields=getFields()[side]||{},entries=Object.entries(fields).sort((a,b)=>Number(a[0])-Number(b[0]));if(!entries.length){list.innerHTML='<div class="empty-fields">No custom fields configured.</div>';return}list.innerHTML=entries.map(([no,f])=>`<div class="custom-field-row"><b>DE ${no}</b><span>${escapeHtml(f.name)}</span><span>${f.type}</span><span>${f.len}</span><button class="secondary" data-delete="${no}">Delete</button></div>`).join('');list.querySelectorAll('[data-delete]').forEach(btn=>btn.onclick=()=>{const all=getFields();delete all[side]?.[btn.dataset.delete];saveFields(all);renderList(side)})}
+  function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  window.addEventListener('DOMContentLoaded',()=>{const header=document.querySelector('.topbar');const button=document.createElement('button');button.className='secondary';button.textContent='ISO Fields';button.onclick=openSettings;header?.appendChild(button);const p2pe=document.getElementById('p2peMode');if(p2pe)p2pe.checked=localStorage.getItem('bitmapParser.p2pe')==='true';p2pe?.addEventListener('change',()=>localStorage.setItem('bitmapParser.p2pe',String(p2pe.checked)))});
 })();
