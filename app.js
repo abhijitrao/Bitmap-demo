@@ -8,7 +8,7 @@ const p2peMode = $('p2peMode');
 
 const SAMPLES = {
   request: '00D360009100010800202001000081008A982003000088000036333030303030370084333531323134347E3236303431363131323433307E3236303431363131323431387E3236303431363131323433307E3236303431363131323433307E7E38337E3335363632313338303738333338347E7E7E7E7E002131375E3232333532355E31362D4170722D32303236005034413931302020426F6E7573487562202030332E30332E30312E32363033323530303134313631303830303030303030303000173134393139343733363020202020203031',
-  response: '60000100910210347001000EC1A070920001000000240000000000438500618272220005460000001748530002363232353738363638343832202020202020393934343839303036333030303030373030303030303030304C433335504B0022333732303936327E323032363038313331373438353303560392001130303A417070726F7665640136303030353333333432423035353030303539333333323030353934353445323032303230323032303230323032303230323032303230323032303230323032303333333933323441353035394135303030323030303036313832373232323036324532453030303035393435344532303230323032303230323032303230323032303230323032303230323032300092307C337C35307C3030303030303030304248303030337C42485430303030337C3030303038307C3030303735347C3030303436377C564953417C7C31303332363038313330373132373438363239303230363735353933373933347C',
+  response: '60000100910210347001000EC1A070920001000000240000000000438500618272220005460000001748530002363232353738363638343832202020202020393934343839303036333030303030373030303030303030304C433335504B0022333732303936327E323032363038313331373438353303560392001130303A417070726F7665640136303030353333333432423035353030303539333333323030353934353445323032303230323032303230323032303230323032303230323032303333333933323441353035394135303030323030303036313832373232323036324532453030303035393435344532303230323032303230323032303230323032303230323032303230323032300092307C337C35307C3030303030303030304248303030337C42485430303030337C3030303038307C3030303735347C3030303436377C564953417C7C31303332363038313330373132373438363239303230363735353933373933347C',
   tlv: '5F2A0203565F340101820219008407A00000052410109B02E8009C01009F02060000000001009F03060000000000009F0607A00000052410109F2701809F3303E0F8C89F34034203009F3501229F360202739F370436D27083'
 };
 
@@ -28,6 +28,8 @@ const FIELDS = {
   58:['Card Indicator and Response Message','LLVAR',2], 59:['DCC detail / RSA Key in Request, Advice in response','LLVAR',2],
   60:['Batch No','LLVAR',2], 61:['Bank Details','LLVAR',2], 62:['Invoice No','LLVAR',2], 63:['Promo Details','LLVAR',2]
 };
+// Expose the same hardcoded ISO field table to ISO Field Settings.
+window.FIELDS = FIELDS;
 const SPECIAL_DE56 = new Set(['982002','982004','960321']);
 
 function cleanHex(value){ return String(value || '').replace(/\s+/g,'').replace(/0x/gi,'').toUpperCase(); }
@@ -91,90 +93,31 @@ function parseFields(hex,active,response){
       }
       rows.push({n,name,type,valueHex,lengthInfo,declaredLength});
       if(n===3) processingCode=bcd(valueHex);
-    } catch(e) {
-      error=e.message || String(e);
-      break;
-    }
+    } catch(e) { error=e.message || String(e); break; }
   }
   return {rows,pos,remaining:hex.slice(pos),processingCode,error};
 }
 
-function parseIso(hex,response=false){
-  const packet=readPacket(hex,response);
-  return {...packet,...parseFields(packet.rest,packet.active,response)};
-}
-
-function parseTlv(hex,depth=0){
+function parseIso(hex,response=false){ const packet=readPacket(hex,response); return {...packet,...parseFields(packet.rest,packet.active,response)}; }
+function parseTlv(hex){
   const rows=[]; let pos=0;
-  while(pos+4<=hex.length){
-    let tag=hex.slice(pos,pos+2); pos+=2;
-    if((parseInt(tag,16)&0x1F)===0x1F){ while(pos+2<=hex.length && (parseInt(hex.slice(pos-2,pos),16)&0x80)) { tag+=hex.slice(pos,pos+2); pos+=2; } }
-    if(pos+2>hex.length) break;
-    const first=parseInt(hex.slice(pos,pos+2),16); pos+=2; let len=first;
-    if(first&0x80){ const count=first&0x7F; if(!count || pos+count*2>hex.length) break; len=parseInt(hex.slice(pos,pos+count*2),16); pos+=count*2; }
-    const value=hex.slice(pos,pos+len*2); if(value.length!==len*2) break; pos+=len*2;
-    rows.push({tag,length:len,value,depth});
-  }
-  return rows;
+  while(pos+4<=hex.length){ let tag=hex.slice(pos,pos+2); pos+=2;
+    if((parseInt(tag,16)&0x1F)===0x1F) while(pos+2<=hex.length && (parseInt(hex.slice(pos-2,pos),16)&0x80)){tag+=hex.slice(pos,pos+2);pos+=2;}
+    if(pos+2>hex.length) break; const first=parseInt(hex.slice(pos,pos+2),16);pos+=2;let len=first;
+    if(first&0x80){const count=first&0x7F;if(!count||pos+count*2>hex.length)break;len=parseInt(hex.slice(pos,pos+count*2),16);pos+=count*2;}
+    const value=hex.slice(pos,pos+len*2);if(value.length!==len*2)break;pos+=len*2;rows.push({tag,length:len,value});
+  } return rows;
 }
 
 function formatIso(parsed){
-  const lines=[];
-  if(parsed.length) lines.push(`Length: ${parsed.length}`);
-  lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Data Elements of Bitmap');
-  const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n);
-  const convert=$('convertAscii').checked;
-  const showLength=$('showLength').checked;
-  const showFieldName=$('showFieldName').checked;
-  const hideValue=$('hideValue').checked;
-  for(const r of rows){
-    const value=hideValue?'********':(convert?ascii(r.valueHex):r.valueHex);
-    const number=String(r.n).padEnd(4,' ');
-    const fieldName=showFieldName?`(${r.name}) `:'';
-    const lengthText=showLength?`(${r.lengthInfo}) `:'';
-    lines.push(`${number}${fieldName}${lengthText}= ${value}`);
-  }
-  if(parsed.error) lines.push('',`Invalid packet: ${parsed.error}`);
-  else if(parsed.remaining) lines.push('',`Unparsed trailing data: ${parsed.remaining}`);
-  return lines.join('\n');
+  const lines=[]; if(parsed.length) lines.push(`Length: ${parsed.length}`); lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Data Elements of Bitmap');
+  const rows=$('originalOrder').checked?parsed.rows:[...parsed.rows].sort((a,b)=>a.n-b.n),convert=$('convertAscii').checked,showLength=$('showLength').checked,showFieldName=$('showFieldName').checked,hideValue=$('hideValue').checked;
+  for(const r of rows){const value=hideValue?'********':(convert?ascii(r.valueHex):r.valueHex),number=String(r.n).padEnd(4,' '),fieldName=showFieldName?`(${r.name}) `:'',lengthText=showLength?`(${r.lengthInfo}) `:'';lines.push(`${number}${fieldName}${lengthText}= ${value}`);}
+  if(parsed.error) lines.push('',`Invalid packet: ${parsed.error}`); else if(parsed.remaining) lines.push('',`Unparsed trailing data: ${parsed.remaining}`); return lines.join('\n');
 }
 window.formatIso=formatIso;
-
-function formatBitmap(parsed){
-  const lines=[]; if(parsed.length) lines.push(`Length: ${parsed.length}`); lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Bit  Field');
-  parsed.active.filter(n=>n!==1).forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${FIELDS[n]?.[0]||`Field ${n}`}`));
-  return lines.join('\n');
-}
-
-function doParse(){
-  const hex=cleanHex(input.value); output.classList.remove('error');
-  if(!hex){ output.textContent=state.mode==='tlv'?'No TLV data.':'Please enter valid Hex code'; return; }
-  if(!validHex(hex)){ output.textContent='Invalid Hex code'; output.classList.add('error'); return; }
-  try{
-    if(state.mode==='tlv'){ const rows=parseTlv(hex); output.textContent=rows.map(r=>`${r.tag} [${r.length}] ${$('convertAscii').checked?ascii(r.value):r.value}`).join('\n')||'No valid TLV data'; packetTitle.textContent='TLV / EMV Result'; meta.textContent=`${hex.length/2} bytes`; return; }
-    if(state.mode==='other'){ output.textContent=$('convertAscii').checked?ascii(hex):hex; packetTitle.textContent='Other'; meta.textContent=`${hex.length/2} bytes`; return; }
-    const parsed=parseIso(hex,state.mode==='response');
-    packetTitle.textContent='ISO8583 Result';
-    meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;
-    output.textContent=(state.mode==='showBitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);
-    if(parsed.error) output.classList.add('error');
-  }catch(e){ output.textContent=`Invalid packet: ${e.message||String(e)}`; output.classList.add('error'); }
-}
-window.doParse=doParse;
-window.exactAndroidParse=doParse;
-window.__androidParserVersion='partial-error-reporting';
-
-function setMode(mode){
-  state.mode=mode;
-  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  if(mode==='request'||mode==='response'||mode==='tlv') input.value=SAMPLES[mode];
-  doParse();
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
-  $('parseBtn')?.addEventListener('click',doParse);
-  $('sampleBtn')?.addEventListener('click',()=>{ input.value=SAMPLES[state.mode]||''; doParse(); });
-  $('clearBtn')?.addEventListener('click',()=>{ input.value=''; output.textContent='Enter a packet and click Parse.'; });
-  ['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$ (id)?.addEventListener('change',doParse));
-});
+function formatBitmap(parsed){const lines=[];if(parsed.length)lines.push(`Length: ${parsed.length}`);lines.push(`TPDU: ${parsed.tpdu}`,`MTI: ${parsed.mti}`,`Bitmap: ${parsed.bitmapHex}`,'','Bit  Field');parsed.active.filter(n=>n!==1).forEach(n=>lines.push(`${String(n).padStart(3,' ')}  ${FIELDS[n]?.[0]||`Field ${n}`}`));return lines.join('\n');}
+function doParse(){const hex=cleanHex(input.value);output.classList.remove('error');if(!hex){output.textContent=state.mode==='tlv'?'No TLV data.':'Please enter valid Hex code';return}if(!validHex(hex)){output.textContent='Invalid Hex code';output.classList.add('error');return}try{if(state.mode==='tlv'){const rows=parseTlv(hex);output.textContent=rows.map(r=>`${r.tag} [${r.length}] ${$('convertAscii').checked?ascii(r.value):r.value}`).join('\n')||'No valid TLV data';packetTitle.textContent='TLV / EMV Result';meta.textContent=`${hex.length/2} bytes`;return}if(state.mode==='other'){output.textContent=$('convertAscii').checked?ascii(hex):hex;packetTitle.textContent='Other';meta.textContent=`${hex.length/2} bytes`;return}const parsed=parseIso(hex,state.mode==='response');packetTitle.textContent='ISO8583 Result';meta.textContent=`MTI ${parsed.mti} · ${parsed.active.filter(n=>n!==1).length} active data fields · ${hex.length/2} bytes${parsed.processingCode?' · PC '+parsed.processingCode:''}`;output.textContent=(state.mode==='showBitmap'||$('showBitmap').checked)?formatBitmap(parsed):formatIso(parsed);if(parsed.error)output.classList.add('error')}catch(e){output.textContent=`Invalid packet: ${e.message||String(e)}`;output.classList.add('error')}}
+window.doParse=doParse;window.exactAndroidParse=doParse;window.__androidParserVersion='partial-error-reporting';
+function setMode(mode){state.mode=mode;document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));if(mode==='request'||mode==='response'||mode==='tlv')input.value=SAMPLES[mode];doParse()}
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));$('parseBtn')?.addEventListener('click',doParse);$('sampleBtn')?.addEventListener('click',()=>{input.value=SAMPLES[state.mode]||'';doParse()});$('clearBtn')?.addEventListener('click',()=>{input.value='';output.textContent='Enter a packet and click Parse.'});['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id)?.addEventListener('change',doParse));});
