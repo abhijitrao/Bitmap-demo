@@ -44,8 +44,9 @@
       if (showName) parts.push(`(${row.name})`);
       if (showLength) parts.push(`(${row.lengthInfo})`);
 
-      // LLVAR: show the original HEX length prefix and packet data.
-      parts.push('=', isLlvar && !hide ? `${lenTag} ${value}` : value);
+      // With Convert ASCII enabled, show ONLY the converted value after '='.
+      // Otherwise preserve the LLVAR length prefix followed by the HEX value.
+      parts.push('=', isLlvar && !hide && !convert ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
 
