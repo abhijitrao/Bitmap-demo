@@ -70,6 +70,10 @@
     return cleaned.join('\n');
   }
 
+  function renameBitmapHeader(text) {
+    return text.replace(/^DE\s+Field Type\s+Length\s+Field Name$/m, 'DE    Type          Length    Field Name');
+  }
+
   window.__isoAscii = window.__isoAscii || function (hex) {
     let out = '';
     for (let i = 0; i < hex.length; i += 2) {
@@ -87,7 +91,7 @@
     if (updating || !isIsoMode()) return;
     const text = output.textContent || '';
     if (!text) return;
-    const result = removeNestedTlvAndNormalize(text);
+    const result = renameBitmapHeader(removeNestedTlvAndNormalize(text));
     if (result !== text) {
       updating = true;
       output.textContent = result;
