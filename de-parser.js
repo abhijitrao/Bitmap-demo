@@ -38,14 +38,12 @@
       return lines;
     }
     value.forEach((item, index) => {
-      // Keep the '=' column aligned for every index at the same nesting level.
       const indexText = String(index).padStart(2, ' ');
-      const prefix = `${indent} `;
       if (Array.isArray(item)) {
-        lines.push(`${prefix}[${indexText}] =`);
+        lines.push(`${indent}[${indexText}] =`);
         rawLines(item, lines, level + 1);
       } else {
-        lines.push(`${prefix}[${indexText}] = ${item}`);
+        lines.push(`${indent}[${indexText}] = ${item}`);
       }
     });
     return lines;
