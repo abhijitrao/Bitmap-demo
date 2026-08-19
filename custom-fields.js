@@ -14,7 +14,7 @@
   function fieldDisplay(side,no,b){
     if(no===12)return {name:side==='request'?'Local Transaction Time':'Local Transaction Date Time',type:'BCD',length:side==='request'?'3':'6',condition:''};
     if(no===53)return {name:'CVV / AES PIN Block',type:'LLVAR',length:'',condition:'',lengthLines:['1 (P2PE)','2 (MKSK)']};
-    if(no===56)return {name:b?.[0]||'Previous ROC, Date, Time in Reversal case',type:'LLVAR',length:'',condition:'',lengthLines:['1 (P2PE)','2 (MKSK)']};
+    if(no===56)return {name:b?.[0]||'Previous ROC, Date, Time in Reversal case',type:'LLVAR',length:'',condition:'',lengthLines:['2 (982002, 982004, 960321)','1 (Others)']};
     return {name:b?.[0]||`Field ${no}`,type:b?.[1]||'LLVAR',length:String(b?.[2]??2),condition:''};
   }
   function statusFor(side,no,c){const b=builtInFields()[String(no)]||builtInFields()[no];if(!b)return'new';const d=fieldDisplay(side,no,b);return d.name===c.name&&d.type===c.type&&((d.length&&String(d.length)===String(c.len))||(!d.length&&d.lengthLines?.includes(String(c.len))))?'current':'modified'}
