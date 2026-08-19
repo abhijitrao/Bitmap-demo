@@ -17,7 +17,3 @@ Web version of the Android Bitmap Parser.
 - Responsive desktop/mobile UI
 
 The web parser is client-side only. Packet data is processed in the browser and is not uploaded to a server.
-
-## Run
-
-Open `index.html` in a browser, or serve the repository with any static web server.
