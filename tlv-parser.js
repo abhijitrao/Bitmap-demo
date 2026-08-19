@@ -16,8 +16,6 @@
       let tag = hex.slice(index, index + 2);
       index += 2;
 
-      // Same rule as Android TLVParser.readTag(): a first-byte 0x1F means
-      // the tag has another byte. Keep the Android parser's 1/2-byte behavior.
       if ((parseInt(tag, 16) & 0x1F) === 0x1F) {
         if (index + 2 > hex.length) throw new Error(`Incomplete TLV tag ${tag}`);
         tag += hex.slice(index, index + 2);
@@ -25,6 +23,7 @@
       }
 
       if (index + 2 > hex.length) throw new Error(`Incomplete length for tag ${tag}`);
+      // Preserve the exact original HEX length byte for display.
       const lengthHex = hex.slice(index, index + 2);
       const length = parseInt(lengthHex, 16);
       index += 2;
@@ -49,8 +48,6 @@
         offset: tagStart
       };
 
-      // EMV templates contain nested TLVs. Android's standalone parser returns
-      // the outer TLV; the web UI additionally exposes the nested structure.
       if (TEMPLATE_TAGS.has(tag) && value) {
         try {
           const children = parseAndroidTlv(value, depth + 1);
@@ -68,10 +65,10 @@
 
   function formatAndroidTlv(rows, lines = [], indent = '') {
     for (const row of rows) {
-      const hidden = typeof $ === 'function' && $('hideValue') && $('hideValue').checked;
-      const value = hidden ? '********' : row.value;
+      const value = row.value;
       const name = row.tagName ? `  ${row.tagName}` : '';
-      lines.push(`${indent}${row.tag}${name}  [${row.length} bytes / ${row.lengthHex}]  ${value}`);
+      // Display the original HEX length byte, not the decimal length.
+      lines.push(`${indent}${row.tag}${name}  [${row.lengthHex}]  ${value}`);
       if (row.children && row.children.length) {
         formatAndroidTlv(row.children, lines, indent + '  ');
       }
@@ -79,8 +76,6 @@
     return lines;
   }
 
-  // Override the parser/formatter used by app.js. This file is loaded after
-  // app.js so the existing Parse button automatically uses these functions.
   window.parseTlv = parseAndroidTlv;
   window.formatTlv = formatAndroidTlv;
 })();
