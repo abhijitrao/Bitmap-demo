@@ -3,10 +3,7 @@
   if (!output) return;
 
   let updating = false;
-
-  const ignoredConvertToAsciiList = new Set([
-    3, 4, 6, 7, 10, 11, 12, 13, 15, 22, 24, 49, 51, 55
-  ]);
+  const ignoredConvertToAsciiList = new Set([3, 4, 6, 7, 10, 11, 12, 13, 15, 22, 24, 49, 51, 55]);
 
   function isIsoMode() {
     const active = document.querySelector('.mode.active');
@@ -65,14 +62,11 @@
     const headerIndex = lines.findIndex(line => /^DE\s+Field Type\s+Length\s+Field Name$/.test(line.trim()) || /^DE\s+Type\s+Length\s+Field Name$/.test(line.trim()));
     if (headerIndex < 0) return text;
     const result = [...lines];
-
-    // Compact Type/Length columns, with a small standard gap before Field Name.
     const deWidth = 5;
     const typeWidth = 7;
     const lengthWidth = 7;
     const fieldNameGap = ' ';
     result[headerIndex] = `${'DE'.padEnd(deWidth, ' ')}${'Type'.padEnd(typeWidth, ' ')}${centerText('Length', lengthWidth)}${fieldNameGap}Field Name`;
-
     for (let i = headerIndex + 1; i < result.length; i++) {
       const line = result[i];
       if (!line.trim() || /^Invalid packet:|^Unparsed trailing data:/.test(line.trim())) break;
@@ -107,8 +101,42 @@
     }
   }
 
+  function ensureSelectionLengthDisplay() {
+    if (document.getElementById('selectionLength')) return;
+    const meta = document.getElementById('meta');
+    if (!meta) return;
+    const el = document.createElement('span');
+    el.id = 'selectionLength';
+    el.style.marginLeft = '12px';
+    el.style.display = 'none';
+    el.textContent = 'Selected: 0';
+    meta.appendChild(el);
+  }
+
+  function updateSelectionLength() {
+    if (!isIsoMode()) return;
+    ensureSelectionLengthDisplay();
+    const el = document.getElementById('selectionLength');
+    if (!el) return;
+    const selection = window.getSelection();
+    const selectedText = selection ? selection.toString() : '';
+    const anchorNode = selection?.anchorNode;
+    const focusNode = selection?.focusNode;
+    const insideOutput = anchorNode && focusNode && output.contains(anchorNode) && output.contains(focusNode);
+    if (insideOutput && selectedText.length > 0) {
+      el.textContent = `Selected Length: ${selectedText.length}`;
+      el.style.display = 'inline';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
   const observer = new MutationObserver(cleanIsoOutput);
   observer.observe(output, { childList: true, characterData: true, subtree: true });
   document.getElementById('modeRow')?.addEventListener('click', () => setTimeout(cleanIsoOutput, 0));
+  document.addEventListener('selectionchange', updateSelectionLength);
+  window.addEventListener('mouseup', updateSelectionLength);
+  window.addEventListener('keyup', updateSelectionLength);
+  ensureSelectionLengthDisplay();
   cleanIsoOutput();
 })();
