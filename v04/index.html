@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ISO8583 / Bitmap / TLV / EMV packet parser" />
+  <title>Bitmap Parser</title>
+  <link rel="stylesheet" href="styles.css?v=4" />
+  <style>
+    #savePacketBtn,
+    #savedPacketsBtn,
+    button[data-mode="other"] { display:none !important; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div><h1>Bitmap Parser</h1><p>ISO8583 · Bitmap · TLV / EMV </p></div>
+    <div class="topbar-actions"><button id="settingsBtn" class="secondary">⚙ Settings</button></div>
+  </header>
+  <main class="layout">
+    <section class="panel input-panel">
+      <div class="mode-row" id="modeRow">
+        <button class="mode active" data-mode="request">Request</button><button class="mode" data-mode="response">Response</button><button class="mode" data-mode="tlv">TLV Parser</button><button class="mode" data-mode="other">Other</button><button id="clearBtn" class="secondary" style="margin-left:auto;">Clear</button>
+      </div>
+      <textarea id="input" spellcheck="false" placeholder="Paste HEX packet here..."></textarea>
+      <div class="options">
+        <label><input id="showBitmap" type="checkbox" /> Show Bitmap</label><label><input id="showFieldName" type="checkbox" /> Field Name</label><label><input id="showLength" type="checkbox" /> Length</label><label><input id="convertAscii" type="checkbox" /> Convert ASCII</label><label><input id="originalOrder" type="checkbox" /> Original Order</label><label><input id="p2peMode" type="checkbox" checked /> P2PE Field Format</label>
+      </div>
+      <div class="action-row"><button id="parseBtn" class="primary">Parse</button></div>
+    </section>
+    <section class="panel result-panel">
+      <div class="result-head"><div><h2 id="packetTitle">Result</h2><div id="meta" class="meta"></div></div><button id="copyBtn" class="secondary">Copy</button></div>
+      <pre id="output" class="output">Enter a packet and click Parse.</pre>
+    </section>
+  </main>
+  <script src="app.js?v=7"></script><script src="custom-fields.js?v=5"></script><script src="settings.js?v=5"></script><script src="saved-packets.js?v=1"></script><script src="tlv-parser.js?v=1"></script><script src="iso-output-fix.js?v=3"></script><script src="copy-fix.js?v=1"></script><script src="hex-converter.js?v=1"></script>
+  <script>window.addEventListener('DOMContentLoaded',()=>{const actions=document.querySelector('.topbar-actions'),settingsBtn=document.getElementById('settingsBtn'),isoFieldsBtn=[...document.querySelectorAll('button')].find(btn=>btn.textContent.trim()==='ISO Fields');if(actions&&settingsBtn&&isoFieldsBtn)actions.insertBefore(isoFieldsBtn,settingsBtn);});</script>
+</body>
+</html>
