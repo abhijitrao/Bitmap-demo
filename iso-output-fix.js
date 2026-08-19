@@ -63,13 +63,22 @@
     return cleaned.join('\n');
   }
 
+  function centerText(value, width) {
+    const text = String(value);
+    if (text.length >= width) return text;
+    const total = width - text.length;
+    const left = Math.floor(total / 2);
+    const right = total - left;
+    return ' '.repeat(left) + text + ' '.repeat(right);
+  }
+
   function formatBitmapColumns(text) {
     const lines = text.split('\n');
     const headerIndex = lines.findIndex(line => /^DE\s+Field Type\s+Length\s+Field Name$/.test(line.trim()) || /^DE\s+Type\s+Length\s+Field Name$/.test(line.trim()));
     if (headerIndex < 0) return text;
 
     const result = [...lines];
-    // Compact fixed columns so the table remains easy to read without excessive gaps.
+    // Compact fixed columns. Only the Length values are centered inside the Length column.
     result[headerIndex] = `${'DE'.padEnd(5, ' ')}${'Type'.padEnd(10, ' ')}${'Length'.padEnd(8, ' ')}Field Name`;
 
     for (let i = headerIndex + 1; i < result.length; i++) {
@@ -78,7 +87,7 @@
       const match = line.match(/^\s*(\d{1,3})\s+(\S+)\s+(\S+)\s+(.+)$/);
       if (!match) continue;
       const [, de, type, length, name] = match;
-      result[i] = `${de.padEnd(5, ' ')}${type.padEnd(10, ' ')}${length.padEnd(8, ' ')}${name}`;
+      result[i] = `${de.padEnd(5, ' ')}${type.padEnd(10, ' ')}${centerText(length, 8)}${name}`;
     }
     return result.join('\n');
   }
