@@ -32,20 +32,12 @@
     for (const row of rows) {
       const isLlvar = row.type === 'LLVAR' || row.type === 'LLVAR_DYNAMIC';
       const lenTag = isLlvar ? String(row.lengthInfo || '').split(' / ')[0] : '';
-
-      // Match Iso.kt ignoredConvertToAsciiList exactly:
-      // listed fields are never converted, even when Convert ASCII is checked.
       const shouldConvert = convert && !ignoredConvertToAsciiList.has(row.n);
       const value = hide ? '********' : (shouldConvert ? window.__isoAscii(row.valueHex) : row.valueHex);
-
       const number = String(row.n).padStart(3, ' ');
       const parts = [number];
-
       if (showName) parts.push(`(${row.name})`);
       if (showLength) parts.push(`(${row.lengthInfo})`);
-
-      // With Convert ASCII enabled, show ONLY the converted value after '='.
-      // Otherwise preserve the LLVAR length prefix followed by the HEX value.
       parts.push('=', isLlvar && !hide && !convert ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
@@ -71,8 +63,23 @@
     return cleaned.join('\n');
   }
 
-  function renameBitmapHeader(text) {
-    return text.replace(/^DE\s+Field Type\s+Length\s+Field Name$/m, 'DE    Type          Length    Field Name');
+  function formatBitmapColumns(text) {
+    const lines = text.split('\n');
+    const headerIndex = lines.findIndex(line => /^DE\s+Field Type\s+Length\s+Field Name$/.test(line.trim()) || /^DE\s+Type\s+Length\s+Field Name$/.test(line.trim()));
+    if (headerIndex < 0) return text;
+
+    const result = [...lines];
+    result[headerIndex] = `${'DE'.padEnd(6, ' ')}${'Type'.padEnd(14, ' ')}${'Length'.padEnd(10, ' ')}Field Name`;
+
+    for (let i = headerIndex + 1; i < result.length; i++) {
+      const line = result[i];
+      if (!line.trim() || /^Invalid packet:|^Unparsed trailing data:/.test(line.trim())) break;
+      const match = line.match(/^\s*(\d{1,3})\s+(\S+)\s+(\S+)\s+(.+)$/);
+      if (!match) continue;
+      const [, de, type, length, name] = match;
+      result[i] = `${de.padEnd(6, ' ')}${type.padEnd(14, ' ')}${length.padEnd(10, ' ')}${name}`;
+    }
+    return result.join('\n');
   }
 
   window.__isoAscii = window.__isoAscii || function (hex) {
@@ -92,7 +99,7 @@
     if (updating || !isIsoMode()) return;
     const text = output.textContent || '';
     if (!text) return;
-    const result = renameBitmapHeader(removeNestedTlvAndNormalize(text));
+    const result = formatBitmapColumns(removeNestedTlvAndNormalize(text));
     if (result !== text) {
       updating = true;
       output.textContent = result;
