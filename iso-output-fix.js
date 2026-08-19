@@ -4,8 +4,6 @@
 
   let updating = false;
 
-  // Same fields as Iso.kt ignoredConvertToAsciiList.
-  // When Convert ASCII is enabled, these field values must remain HEX.
   const ignoredConvertToAsciiList = new Set([
     3, 4, 6, 7, 10, 11, 12, 13, 15, 22, 24, 49, 51, 55
   ]);
@@ -22,13 +20,10 @@
     const convert = document.getElementById('convertAscii')?.checked;
     const hide = document.getElementById('hideValue')?.checked;
     const original = document.getElementById('originalOrder')?.checked;
-
     const rows = original ? parsed.rows : [...parsed.rows].sort((a, b) => a.n - b.n);
     const lines = [];
-
     if (parsed.length) lines.push(`Length: ${parsed.length}`);
     lines.push(`TPDU: ${parsed.tpdu}`, `MTI: ${parsed.mti}`, `Bitmap: ${parsed.bitmapHex}`, '', 'Data Elements of Bitmap');
-
     for (const row of rows) {
       const isLlvar = row.type === 'LLVAR' || row.type === 'LLVAR_DYNAMIC';
       const lenTag = isLlvar ? String(row.lengthInfo || '').split(' / ')[0] : '';
@@ -41,7 +36,6 @@
       parts.push('=', isLlvar && !hide && !convert ? `${lenTag} ${value}` : value);
       lines.push(parts.join(' '));
     }
-
     if (parsed.remaining) lines.push('', `Unparsed trailing data: ${parsed.remaining}`);
     return lines.join('\n');
   }
@@ -50,12 +44,8 @@
     const lines = text.split('\n');
     const cleaned = [];
     let skip = false;
-
     for (const line of lines) {
-      if (line.trim() === 'EMV/TLV:') {
-        skip = true;
-        continue;
-      }
+      if (line.trim() === 'EMV/TLV:') { skip = true; continue; }
       if (skip && /^DE\s+\d+\s*=/.test(line.trim())) skip = false;
       if (skip) continue;
       cleaned.push(line.replace(/^(\s*)DE\s+(\d{1,3})(\s*=)/, '$1$2$3'));
@@ -67,22 +57,21 @@
     const text = String(value);
     if (text.length >= width) return text;
     const total = width - text.length;
-    const left = Math.floor(total / 2);
-    const right = total - left;
-    return ' '.repeat(left) + text + ' '.repeat(right);
+    return ' '.repeat(Math.floor(total / 2)) + text + ' '.repeat(Math.ceil(total / 2));
   }
 
   function formatBitmapColumns(text) {
     const lines = text.split('\n');
     const headerIndex = lines.findIndex(line => /^DE\s+Field Type\s+Length\s+Field Name$/.test(line.trim()) || /^DE\s+Type\s+Length\s+Field Name$/.test(line.trim()));
     if (headerIndex < 0) return text;
-
     const result = [...lines];
-    // Compact fixed columns. Only the Length values are centered inside the Length column.
+
+    // Compact Type/Length columns, with a small standard gap before Field Name.
     const deWidth = 5;
-    const typeWidth = 8;
+    const typeWidth = 7;
     const lengthWidth = 7;
-    result[headerIndex] = `${'DE'.padEnd(deWidth, ' ')}${'Type'.padEnd(typeWidth, ' ')}${centerText('Length', lengthWidth)}Field Name`;
+    const fieldNameGap = ' ';
+    result[headerIndex] = `${'DE'.padEnd(deWidth, ' ')}${'Type'.padEnd(typeWidth, ' ')}${centerText('Length', lengthWidth)}${fieldNameGap}Field Name`;
 
     for (let i = headerIndex + 1; i < result.length; i++) {
       const line = result[i];
@@ -90,7 +79,7 @@
       const match = line.match(/^\s*(\d{1,3})\s+(\S+)\s+(\S+)\s+(.+)$/);
       if (!match) continue;
       const [, de, type, length, name] = match;
-      result[i] = `${de.padEnd(deWidth, ' ')}${type.padEnd(typeWidth, ' ')}${centerText(length, lengthWidth)}${name}`;
+      result[i] = `${de.padEnd(deWidth, ' ')}${type.padEnd(typeWidth, ' ')}${centerText(length, lengthWidth)}${fieldNameGap}${name}`;
     }
     return result.join('\n');
   }
@@ -104,9 +93,7 @@
     return out;
   };
 
-  window.formatIso = function (parsed) {
-    return formatIsoWithLlvarLength(parsed);
-  };
+  window.formatIso = function (parsed) { return formatIsoWithLlvarLength(parsed); };
 
   function cleanIsoOutput() {
     if (updating || !isIsoMode()) return;
@@ -122,7 +109,6 @@
 
   const observer = new MutationObserver(cleanIsoOutput);
   observer.observe(output, { childList: true, characterData: true, subtree: true });
-
   document.getElementById('modeRow')?.addEventListener('click', () => setTimeout(cleanIsoOutput, 0));
   cleanIsoOutput();
 })();
