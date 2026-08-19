@@ -79,7 +79,10 @@
 
     const result = [...lines];
     // Compact fixed columns. Only the Length values are centered inside the Length column.
-    result[headerIndex] = `${'DE'.padEnd(5, ' ')}${'Type'.padEnd(10, ' ')}${'Length'.padEnd(8, ' ')}Field Name`;
+    const deWidth = 5;
+    const typeWidth = 8;
+    const lengthWidth = 7;
+    result[headerIndex] = `${'DE'.padEnd(deWidth, ' ')}${'Type'.padEnd(typeWidth, ' ')}${centerText('Length', lengthWidth)}Field Name`;
 
     for (let i = headerIndex + 1; i < result.length; i++) {
       const line = result[i];
@@ -87,7 +90,7 @@
       const match = line.match(/^\s*(\d{1,3})\s+(\S+)\s+(\S+)\s+(.+)$/);
       if (!match) continue;
       const [, de, type, length, name] = match;
-      result[i] = `${de.padEnd(5, ' ')}${type.padEnd(10, ' ')}${centerText(length, 8)}${name}`;
+      result[i] = `${de.padEnd(deWidth, ' ')}${type.padEnd(typeWidth, ' ')}${centerText(length, lengthWidth)}${name}`;
     }
     return result.join('\n');
   }
