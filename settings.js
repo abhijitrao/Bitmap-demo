@@ -7,14 +7,21 @@ const SETTINGS_KEY = 'bitmap-parser-packet-settings-v1';
 
 function loadPacketSettings() {
   try {
-    return { ...DEFAULT_PACKET_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return {
+      request: { ...DEFAULT_PACKET_SETTINGS.request, ...(saved.request || {}) },
+      response: { ...DEFAULT_PACKET_SETTINGS.response, ...(saved.response || {}) }
+    };
   } catch (_) {
-    return { ...DEFAULT_PACKET_SETTINGS };
+    return {
+      request: { ...DEFAULT_PACKET_SETTINGS.request },
+      response: { ...DEFAULT_PACKET_SETTINGS.response }
+    };
   }
 }
 
 function savePacketSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
 }
 
 function numberValue(id, fallback) {
@@ -24,8 +31,7 @@ function numberValue(id, fallback) {
 
 function openPacketSettings() {
   const settings = loadPacketSettings();
-  const existing = document.getElementById('packetSettingsModal');
-  if (existing) existing.remove();
+  document.getElementById('packetSettingsModal')?.remove();
 
   const modal = document.createElement('div');
   modal.id = 'packetSettingsModal';
@@ -34,42 +40,48 @@ function openPacketSettings() {
     <div class="settings-modal">
       <div class="settings-head">
         <div><h2>Packet Settings</h2><p>Configure packet indexes used by the parser.</p></div>
-        <button id="settingsClose" class="secondary">Close</button>
+        <button type="button" id="settingsClose" class="secondary">Close</button>
       </div>
       <div class="settings-section">
         <h3>Request</h3>
         <div class="settings-grid">
-          <label>Length Start <input id="reqLengthStart" type="number" min="0" value="${settings.request?.lengthStartIndex ?? 0}"></label>
-          <label>Length End <input id="reqLengthEnd" type="number" min="0" value="${settings.request?.lengthEndIndex ?? 4}"></label>
-          <label>TPDU Start <input id="reqTpduStart" type="number" min="0" value="${settings.request?.tpduStartIndex ?? 4}"></label>
-          <label>MTI Start <input id="reqMtiStart" type="number" min="0" value="${settings.request?.mtiStartIndex ?? 14}"></label>
-          <label>MTI End <input id="reqMtiEnd" type="number" min="0" value="${settings.request?.mtiEndIndex ?? 18}"></label>
-          <label>Bitmap Start <input id="reqBitmap" type="number" min="0" value="${settings.request?.bitmapIndex ?? 18}"></label>
+          <label>Length Start <input id="reqLengthStart" type="number" min="0" value="${settings.request.lengthStartIndex}"></label>
+          <label>Length End <input id="reqLengthEnd" type="number" min="0" value="${settings.request.lengthEndIndex}"></label>
+          <label>TPDU Start <input id="reqTpduStart" type="number" min="0" value="${settings.request.tpduStartIndex}"></label>
+          <label>MTI Start <input id="reqMtiStart" type="number" min="0" value="${settings.request.mtiStartIndex}"></label>
+          <label>MTI End <input id="reqMtiEnd" type="number" min="0" value="${settings.request.mtiEndIndex}"></label>
+          <label>Bitmap Start <input id="reqBitmap" type="number" min="0" value="${settings.request.bitmapIndex}"></label>
         </div>
       </div>
       <div class="settings-section">
         <h3>Response</h3>
         <div class="settings-grid">
-          <label>TPDU Start <input id="resTpduStart" type="number" min="0" value="${settings.response?.tpduStartIndex ?? 0}"></label>
-          <label>MTI Start <input id="resMtiStart" type="number" min="0" value="${settings.response?.mtiStartIndex ?? 10}"></label>
-          <label>MTI End <input id="resMtiEnd" type="number" min="0" value="${settings.response?.mtiEndIndex ?? 14}"></label>
-          <label>Bitmap Start <input id="resBitmap" type="number" min="0" value="${settings.response?.bitmapIndex ?? 14}"></label>
+          <label>TPDU Start <input id="resTpduStart" type="number" min="0" value="${settings.response.tpduStartIndex}"></label>
+          <label>MTI Start <input id="resMtiStart" type="number" min="0" value="${settings.response.mtiStartIndex}"></label>
+          <label>MTI End <input id="resMtiEnd" type="number" min="0" value="${settings.response.mtiEndIndex}"></label>
+          <label>Bitmap Start <input id="resBitmap" type="number" min="0" value="${settings.response.bitmapIndex}"></label>
         </div>
       </div>
       <div class="settings-actions">
-        <button id="settingsReset" class="secondary">Reset Defaults</button>
-        <button id="settingsSave" class="primary">Save Settings</button>
+        <button type="button" id="settingsReset" class="secondary">Reset Defaults</button>
+        <button type="button" id="settingsSave" class="primary">Save Settings</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 
-  document.getElementById('settingsClose').onclick = () => modal.remove();
-  document.getElementById('settingsReset').onclick = () => {
-    savePacketSettings(DEFAULT_PACKET_SETTINGS);
+  modal.querySelector('#settingsClose').onclick = () => modal.remove();
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  modal.querySelector('#settingsReset').onclick = () => {
+    savePacketSettings({
+      request: { ...DEFAULT_PACKET_SETTINGS.request },
+      response: { ...DEFAULT_PACKET_SETTINGS.response }
+    });
     modal.remove();
-    alert('Packet settings reset.');
+    if (typeof window.doParse === 'function' && document.getElementById('input')?.value.trim()) window.doParse();
   };
-  document.getElementById('settingsSave').onclick = () => {
+
+  modal.querySelector('#settingsSave').onclick = () => {
     const next = {
       request: {
         lengthStartIndex: numberValue('reqLengthStart', 0),
@@ -86,6 +98,7 @@ function openPacketSettings() {
         bitmapIndex: numberValue('resBitmap', 14)
       }
     };
+
     if (next.request.mtiEndIndex <= next.request.mtiStartIndex || next.request.bitmapIndex < next.request.mtiEndIndex) {
       alert('Invalid Request indexes. MTI End must be after MTI Start and Bitmap Start must be after MTI.');
       return;
@@ -94,19 +107,20 @@ function openPacketSettings() {
       alert('Invalid Response indexes. MTI End must be after MTI Start and Bitmap Start must be after MTI.');
       return;
     }
+
     savePacketSettings(next);
     modal.remove();
-    if (typeof doParse === 'function' && document.getElementById('input')?.value.trim()) doParse();
+    if (typeof window.doParse === 'function' && document.getElementById('input')?.value.trim()) window.doParse();
   };
 }
 
-// Android's PacketModel values are character/hex indexes. Replace the default prefix reader
-// without changing the parser engine, so the web version remains configurable like SettingActivity.
-const originalGetPacketPrefix = window.getPacketPrefix;
+window.openPacketSettings = openPacketSettings;
+
+// Keep the packet-prefix configuration hook compatible with the existing parser.
 window.getPacketPrefix = function(hex, response) {
   const all = loadPacketSettings();
   const cfg = response ? all.response : all.request;
-  const prefix = response
+  return response
     ? {
         tpdu: hex.slice(cfg.tpduStartIndex, cfg.mtiStartIndex),
         mti: hex.slice(cfg.mtiStartIndex, cfg.mtiEndIndex),
@@ -118,10 +132,8 @@ window.getPacketPrefix = function(hex, response) {
         mti: hex.slice(cfg.mtiStartIndex, cfg.mtiEndIndex),
         bitmapStart: cfg.bitmapIndex
       };
-  return prefix;
 };
 
-window.addEventListener('DOMContentLoaded', () => {
-  const button = document.getElementById('settingsBtn');
-  if (button) button.addEventListener('click', openPacketSettings);
-});
+// Bind directly because this script is loaded after the Settings button exists.
+const settingsButton = document.getElementById('settingsBtn');
+if (settingsButton) settingsButton.addEventListener('click', openPacketSettings);
