@@ -1,9 +1,6 @@
 fun getIsoField(fieldNo: Byte, isReq: Boolean = true, processingCode : String = ""): IsoField {
     val isEnableP2PE = AppPreference.isEnableP2PE()
-    val mSavedIsoField = DataManager.getSavedIsoMap(isReq).get(fieldNo)
-    if(mSavedIsoField != null){
-        return mSavedIsoField
-    }
+
     return when (fieldNo) {
         1.toByte() -> IsoField(1, "Bitmap", true, len = 8)
         2.toByte() -> IsoField(2, "PAN / Mobile", true, len = 8)
