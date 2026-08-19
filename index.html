@@ -41,5 +41,15 @@
   <script src="tlv-parser.js?v=1"></script>
   <script src="iso-output-fix.js?v=3"></script>
   <script src="copy-fix.js?v=1"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const actions = document.querySelector('.topbar-actions');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const isoFieldsBtn = [...document.querySelectorAll('button')].find(btn => btn.textContent.trim() === 'ISO Fields');
+      if (actions && settingsBtn && isoFieldsBtn) {
+        actions.insertBefore(isoFieldsBtn, settingsBtn);
+      }
+    });
+  </script>
 </body>
 </html>
