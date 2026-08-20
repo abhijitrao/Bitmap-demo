@@ -1,0 +1,58 @@
+(() => {
+  const DEFAULT_CHARS = ['|', '^', '\\', '~'];
+  function getSeparators() { const chars = typeof window.getDEParsingSpecialChars === 'function' ? window.getDEParsingSpecialChars() : DEFAULT_CHARS; return [...new Set((chars || []).filter(c => typeof c === 'string' && c.length === 1))]; }
+  function isHexInput(text) { const value = String(text ?? '').trim().replace(/\s+/g, '').replace(/^0x/i, ''); return value.length > 0 && value.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(value); }
+  function decodeHexToAscii(text) { const value = String(text ?? '').trim().replace(/\s+/g, '').replace(/^0x/i, ''); let result = ''; for (let i = 0; i < value.length; i += 2) result += String.fromCharCode(parseInt(value.slice(i, i + 2), 16)); return result; }
+  function prepareInput(text) { const value = String(text ?? ''); return isHexInput(value) ? { value: decodeHexToAscii(value), isHex: true } : { value, isHex: false }; }
+  function findNextSeparator(text) { const chars = getSeparators(); for (let i = 0; i < text.length; i++) if (chars.includes(text[i])) return { index: i, separator: text[i] }; return null; }
+  function parseLevel(text) { const value = String(text ?? ''); const next = findNextSeparator(value); return next ? value.split(next.separator).map(parseLevel) : value; }
+  function parse(text) { return parseLevel(prepareInput(text).value); }
+  function getMaxIndexWidth(value, current = 1) { if (!Array.isArray(value)) return current; value.forEach((item, index) => { current = Math.max(current, String(index).length); current = getMaxIndexWidth(item, current); }); return current; }
+  function rawLines(value, lines = [], level = 0, indexWidth = 1) { const indent = '\t'.repeat(level); if (!Array.isArray(value)) { lines.push(`${indent}${value}`); return lines; } value.forEach((item, index) => { const bracketedIndex = `[${index}]`; const maxBracketWidth = indexWidth + 2; const equalsPadding = ' '.repeat(Math.max(1, maxBracketWidth - bracketedIndex.length + 1)); if (Array.isArray(item)) lines.push(`${indent}${bracketedIndex}${equalsPadding}=`); else lines.push(`${indent}${bracketedIndex}${equalsPadding}= ${item}`); if (Array.isArray(item)) rawLines(item, lines, level + 1, indexWidth); }); return lines; }
+  function formatRaw(parsed) { return rawLines(parsed, [], 0, getMaxIndexWidth(parsed)).join('\n'); }
+  function formatJson(parsed) { return JSON.stringify(parsed, null, 2); }
+  function parseAndRender() { const input = document.getElementById('input'), output = document.getElementById('output'), jsonRadio = document.getElementById('deOutputJson'); if (!input || !output) return; try { const prepared = prepareInput(input.value); const parsed = parseLevel(prepared.value); output.textContent = jsonRadio?.checked ? formatJson(parsed) : formatRaw(parsed); const packetTitle = document.getElementById('packetTitle'), meta = document.getElementById('meta'); if (packetTitle) packetTitle.textContent = 'DE Parser Result'; if (meta) meta.textContent = prepared.isHex ? `${prepared.value.length} characters · HEX → ASCII` : `${prepared.value.length} characters`; output.classList.remove('error'); } catch (error) { output.textContent = `DE Parser Error: ${error.message}`; output.classList.add('error'); } }
+  function setDEMode(active) { const options = document.querySelector('.options'); if (options) options.style.display = active ? 'none' : ''; document.getElementById('parseBtn')?.classList.toggle('de-parser-active', active); const existing = document.getElementById('deOutputOptions'); if (existing) existing.remove(); if (!active) return; const resultHead = document.querySelector('.result-head'); if (resultHead) { const wrapper = document.createElement('div'); wrapper.id = 'deOutputOptions'; wrapper.style.cssText = 'display:flex;gap:14px;align-items:center;margin-left:auto;margin-right:12px;font-size:13px;'; wrapper.innerHTML = '<label><input type="radio" name="deOutputFormat" id="deOutputRaw" checked> List</label><label><input type="radio" name="deOutputFormat" id="deOutputJson"> JSON</label>'; resultHead.insertBefore(wrapper, document.getElementById('copyBtn')); wrapper.querySelectorAll('input').forEach(radio => radio.addEventListener('change', parseAndRender)); } }
+  window.DEParser = { parse, formatRaw, formatJson, parseAndRender, setDEMode, isHexInput, decodeHexToAscii };
+  window.addEventListener('DOMContentLoaded', () => {
+    const modeRow = document.getElementById('modeRow'), tlvButton = modeRow ? [...modeRow.querySelectorAll('.mode')].find(b => b.dataset.mode === 'tlv') : null;
+    if (!modeRow || !tlvButton || document.querySelector('[data-mode="de"]')) return;
+    const button = document.createElement('button'); button.className = 'mode'; button.dataset.mode = 'de'; button.textContent = 'DE Parser'; modeRow.insertBefore(button, document.getElementById('clearBtn'));
+    button.addEventListener('click', () => { if (typeof window.setMode === 'function') window.setMode('de'); else { modeRow.querySelectorAll('.mode').forEach(b => b.classList.remove('active')); button.classList.add('active'); } setDEMode(true); parseAndRender(); });
+    modeRow.querySelectorAll('.mode').forEach(tab => { if (tab !== button) tab.addEventListener('click', () => setDEMode(false)); });
+    document.getElementById('parseBtn')?.addEventListener('click', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
+    document.getElementById('input')?.addEventListener('input', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
+    document.getElementById('input')?.addEventListener('input', event => { if (document.querySelector('.mode.active')?.dataset.mode !== 'de') return; event.stopImmediatePropagation(); clearTimeout(window.__deAutoParseTimer); window.__deAutoParseTimer = setTimeout(parseAndRender, 300); }, true);
+
+    const inputCache = window.__parserInputCache || { iso: '', tlv: '', de: '' };
+    window.__parserInputCache = inputCache;
+    const keyForMode = mode => mode === 'tlv' ? 'tlv' : mode === 'de' ? 'de' : 'iso';
+    const modeFromButton = buttonEl => buttonEl?.dataset?.mode || 'request';
+    const cacheCurrent = () => {
+      const active = modeRow.querySelector('.mode.active');
+      if (active && document.getElementById('input')) inputCache[keyForMode(modeFromButton(active))] = document.getElementById('input').value;
+    };
+    modeRow.addEventListener('click', event => {
+      const target = event.target.closest('.mode');
+      if (!target) return;
+      cacheCurrent();
+      const targetMode = modeFromButton(target);
+      setTimeout(() => {
+        const currentInput = document.getElementById('input');
+        if (!currentInput) return;
+        currentInput.value = inputCache[keyForMode(targetMode)] ?? '';
+        if (targetMode === 'de') {
+          setDEMode(true);
+          parseAndRender();
+        } else {
+          setDEMode(false);
+          window.doParse?.();
+        }
+      }, 0);
+    }, true);
+    document.getElementById('input')?.addEventListener('input', () => {
+      const active = modeRow.querySelector('.mode.active');
+      if (active) inputCache[keyForMode(modeFromButton(active))] = document.getElementById('input').value;
+    }, true);
+  });
+})();
