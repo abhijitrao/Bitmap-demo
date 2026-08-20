@@ -38,12 +38,15 @@
       return lines;
     }
     value.forEach((item, index) => {
-      const indexText = String(index).padStart(2, ' ');
+      // Keep brackets compact while keeping the '=' column aligned.
+      const indexText = String(index);
+      const bracketedIndex = `[${indexText}]`;
+      const equalsPadding = ' '.repeat(Math.max(1, 4 - bracketedIndex.length));
       if (Array.isArray(item)) {
-        lines.push(`${indent}[${indexText}] =`);
+        lines.push(`${indent}${bracketedIndex}${equalsPadding}=`);
         rawLines(item, lines, level + 1);
       } else {
-        lines.push(`${indent}[${indexText}] = ${item}`);
+        lines.push(`${indent}${bracketedIndex}${equalsPadding}= ${item}`);
       }
     });
     return lines;
