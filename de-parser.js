@@ -18,7 +18,7 @@
     const modeRow = document.getElementById('modeRow'), tlvButton = modeRow ? [...modeRow.querySelectorAll('.mode')].find(b => b.dataset.mode === 'tlv') : null;
     if (!modeRow || !tlvButton || document.querySelector('[data-mode="de"]')) return;
     const button = document.createElement('button'); button.className = 'mode'; button.dataset.mode = 'de'; button.textContent = 'DE Parser'; modeRow.insertBefore(button, document.getElementById('clearBtn'));
-    button.addEventListener('click', () => { if (typeof window.switchParserInput === 'function') window.switchParserInput('de'); else { modeRow.querySelectorAll('.mode').forEach(b => b.classList.remove('active')); button.classList.add('active'); } setDEMode(true); parseAndRender(); });
+    button.addEventListener('click', () => { if (typeof window.setMode === 'function') window.setMode('de'); else { modeRow.querySelectorAll('.mode').forEach(b => b.classList.remove('active')); button.classList.add('active'); } setDEMode(true); parseAndRender(); });
     modeRow.querySelectorAll('.mode').forEach(tab => { if (tab !== button) tab.addEventListener('click', () => setDEMode(false)); });
     document.getElementById('parseBtn')?.addEventListener('click', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
     document.getElementById('input')?.addEventListener('input', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
