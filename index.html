@@ -20,6 +20,35 @@
     <section class="panel result-panel"><div class="result-head"><div><h2 id="packetTitle">Result</h2><div id="meta" class="meta"></div></div><button id="copyBtn" class="secondary">Copy</button></div><pre id="output" class="output">Enter a packet and click Parse.</pre></section>
   </main>
   <script src="app.js?v=7"></script><script src="custom-fields.js?v=5"></script><script src="settings.js?v=5"></script><script src="saved-packets.js?v=1"></script><script src="tlv-parser.js?v=1"></script><script src="iso-output-fix.js?v=3"></script><script src="copy-fix.js?v=1"></script><script src="hex-converter.js?v=1"></script><script src="de-parser.js?v=2"></script>
-  <script>window.addEventListener('DOMContentLoaded',()=>{const actions=document.querySelector('.topbar-actions'),settingsBtn=document.getElementById('settingsBtn'),isoFieldsBtn=[...document.querySelectorAll('button')].find(btn=>btn.textContent.trim()==='ISO Fields');if(actions&&settingsBtn&&isoFieldsBtn)actions.insertBefore(isoFieldsBtn,settingsBtn);});</script>
+  <script>
+    window.addEventListener('DOMContentLoaded',()=>{
+      const actions=document.querySelector('.topbar-actions'),settingsBtn=document.getElementById('settingsBtn'),isoFieldsBtn=[...document.querySelectorAll('button')].find(btn=>btn.textContent.trim()==='ISO Fields');
+      if(actions&&settingsBtn&&isoFieldsBtn)actions.insertBefore(isoFieldsBtn,settingsBtn);
+
+      const refreshResultHeader=(mode)=>{
+        const title=document.getElementById('packetTitle');
+        const meta=document.getElementById('meta');
+        if(!title||!meta)return;
+        if(mode==='de'){
+          title.textContent='DE Parser Result';
+          meta.textContent=`${document.getElementById('input')?.value.length||0} characters`;
+        }else if(mode==='tlv'){
+          title.textContent='TLV / EMV Result';
+          const value=document.getElementById('input')?.value||'';
+          meta.textContent=`${value.replace(/\s+/g,'').length/2} bytes`;
+        }else{
+          title.textContent='ISO8583 Result';
+          meta.textContent='';
+        }
+      };
+
+      document.querySelectorAll('#modeRow .mode').forEach(tab=>{
+        tab.addEventListener('click',()=>setTimeout(()=>refreshResultHeader(tab.dataset.mode),0));
+      });
+
+      const deTab=document.querySelector('#modeRow [data-mode="de"]');
+      if(deTab)deTab.addEventListener('click',()=>setTimeout(()=>refreshResultHeader('de'),0));
+    });
+  </script>
 </body>
 </html>
