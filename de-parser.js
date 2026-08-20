@@ -31,20 +31,30 @@
     return parseLevel(String(text ?? ''));
   }
 
-  function rawLines(value, lines = [], level = 0) {
+  function getMaxIndexWidth(value, current = 1) {
+    if (!Array.isArray(value)) return current;
+    value.forEach((item, index) => {
+      current = Math.max(current, String(index).length);
+      current = getMaxIndexWidth(item, current);
+    });
+    return current;
+  }
+
+  function rawLines(value, lines = [], level = 0, indexWidth = 1) {
     const indent = '\t'.repeat(level);
     if (!Array.isArray(value)) {
       lines.push(`${indent}${value}`);
       return lines;
     }
     value.forEach((item, index) => {
-      // Keep brackets compact while keeping the '=' column aligned.
-      const indexText = String(index);
+      // No spaces inside brackets. Pad only outside the closing bracket so '=' stays aligned.
+      const indexText = String(index).padStart(indexWidth, ' ');
       const bracketedIndex = `[${indexText}]`;
-      const equalsPadding = ' '.repeat(Math.max(1, 4 - bracketedIndex.length));
+      const equalsColumn = indexWidth + 3;
+      const equalsPadding = ' '.repeat(Math.max(1, equalsColumn - bracketedIndex.length));
       if (Array.isArray(item)) {
         lines.push(`${indent}${bracketedIndex}${equalsPadding}=`);
-        rawLines(item, lines, level + 1);
+        rawLines(item, lines, level + 1, indexWidth);
       } else {
         lines.push(`${indent}${bracketedIndex}${equalsPadding}= ${item}`);
       }
@@ -53,7 +63,7 @@
   }
 
   function formatRaw(parsed) {
-    return rawLines(parsed).join('\n');
+    return rawLines(parsed, [], 0, getMaxIndexWidth(parsed)).join('\n');
   }
 
   function formatJson(parsed) {
