@@ -23,5 +23,39 @@
     document.getElementById('parseBtn')?.addEventListener('click', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
     document.getElementById('input')?.addEventListener('input', () => { if (document.querySelector('.mode.active')?.dataset.mode === 'de') parseAndRender(); });
     document.getElementById('input')?.addEventListener('input', event => { if (document.querySelector('.mode.active')?.dataset.mode !== 'de') return; event.stopImmediatePropagation(); clearTimeout(window.__deAutoParseTimer); window.__deAutoParseTimer = setTimeout(parseAndRender, 300); }, true);
+
+    // Keep the single textarea's three logical inputs stable across tab switches.
+    // Capture the current value before app.js changes the active tab, then restore
+    // the target parser's value and refresh its result after the switch completes.
+    const inputCache = window.__parserInputCache || { iso: '', tlv: '', de: '' };
+    window.__parserInputCache = inputCache;
+    const keyForMode = mode => mode === 'tlv' ? 'tlv' : mode === 'de' ? 'de' : 'iso';
+    const modeFromButton = buttonEl => buttonEl?.dataset?.mode || 'request';
+    const cacheCurrent = () => {
+      const active = modeRow.querySelector('.mode.active');
+      if (active && document.getElementById('input')) inputCache[keyForMode(modeFromButton(active))] = document.getElementById('input').value;
+    };
+    modeRow.addEventListener('click', event => {
+      const target = event.target.closest('.mode');
+      if (!target) return;
+      cacheCurrent();
+      const targetMode = modeFromButton(target);
+      setTimeout(() => {
+        const currentInput = document.getElementById('input');
+        if (!currentInput) return;
+        currentInput.value = inputCache[keyForMode(targetMode)] ?? '';
+        if (targetMode === 'de') {
+          setDEMode(true);
+          parseAndRender();
+        } else {
+          setDEMode(false);
+          window.doParse?.();
+        }
+      }, 0);
+    }, true);
+    document.getElementById('input')?.addEventListener('input', () => {
+      const active = modeRow.querySelector('.mode.active');
+      if (active) inputCache[keyForMode(modeFromButton(active))] = document.getElementById('input').value;
+    }, true);
   });
 })();
