@@ -8,9 +8,9 @@
   <link rel="stylesheet" href="styles.css?v=4" />
   <style>
     #savePacketBtn,#savedPacketsBtn,button[data-mode="other"]{display:none!important}
-    .layout{height:calc(100vh - 110px)}
-    .powered-by{position:fixed;left:0;right:0;bottom:8px;text-align:center;font-size:12px;color:#64748b;line-height:18px;pointer-events:none;z-index:4;}
-    @media(max-width:850px){.layout{height:auto}}
+    .layout{height:calc(100vh - 72px);grid-template-rows:minmax(0,1fr) auto;}
+    .powered-by{position:static;grid-column:1/-1;text-align:center;font-size:12px;color:#64748b;line-height:18px;padding:4px 0 8px;pointer-events:none;}
+    @media(max-width:850px){.layout{height:auto;grid-template-rows:none}.powered-by{grid-column:1}}
   </style>
 </head>
 <body>
@@ -23,8 +23,8 @@
       <div class="action-row"><button id="parseBtn" class="primary">Parse</button></div>
     </section>
     <section class="panel result-panel"><div class="result-head"><div><h2 id="packetTitle">Result</h2><div id="meta" class="meta"></div></div><button id="copyBtn" class="secondary">Copy</button></div><pre id="output" class="output">Enter a packet and click Parse.</pre></section>
+    <div class="powered-by">POWERD BY - BonusHub</div>
   </main>
-  <div class="powered-by">POWERD BY - BonusHub</div>
   <script src="app.js?v=7"></script><script src="custom-fields.js?v=5"></script><script src="settings.js?v=5"></script><script src="saved-packets.js?v=1"></script><script src="tlv-parser.js?v=1"></script><script src="iso-output-fix.js?v=3"></script><script src="copy-fix.js?v=1"></script><script src="hex-converter.js?v=1"></script><script src="de-parser.js?v=2"></script><script src="result-meta-fix.js?v=1"></script>
   <script>window.addEventListener('DOMContentLoaded',()=>{const actions=document.querySelector('.topbar-actions'),settingsBtn=document.getElementById('settingsBtn'),isoFieldsBtn=[...document.querySelectorAll('button')].find(btn=>btn.textContent.trim()==='ISO Fields');if(actions&&settingsBtn&&isoFieldsBtn)actions.insertBefore(isoFieldsBtn,settingsBtn);});</script>
 </body>
