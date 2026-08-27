@@ -19,7 +19,14 @@
     <section class="panel input-panel">
       <div class="mode-row" id="modeRow"><button class="mode active" data-mode="request">Request</button><button class="mode" data-mode="response">Response</button><button class="mode" data-mode="tlv">TLV Parser</button><button class="mode" data-mode="other">Other</button><button id="clearBtn" class="secondary" style="margin-left:auto;">Clear</button></div>
       <textarea id="input" spellcheck="false" placeholder="Paste HEX packet here..."></textarea>
-      <div class="options"><label><input id="p2peMode" type="checkbox" checked /> P2PE Field Format</label><label><input id="showFieldName" type="checkbox" /> Field Name</label><label><input id="showLength" type="checkbox" /> Length</label><label><input id="convertAscii" type="checkbox" /> Convert ASCII</label><label><input id="originalOrder" type="checkbox" /> Original Order</label><label><input id="showBitmap" type="checkbox" /> Show Bitmap</label></div>
+      <div class="options">
+        <label><input id="p2peMode" type="checkbox" checked /> P2PE Field Format</label>
+        <label><input id="showLength" type="checkbox" /> Length</label>
+        <label><input id="originalOrder" type="checkbox" /> Original Order</label>
+        <label><input id="showFieldName" type="checkbox" /> Field Name</label>
+        <label><input id="showBitmap" type="checkbox" /> Show Bitmap</label>
+        <label><input id="convertAscii" type="checkbox" /> Convert ASCII</label>
+      </div>
       <div class="action-row"><button id="parseBtn" class="primary">Parse</button></div>
     </section>
     <section class="panel result-panel"><div class="result-head"><div><h2 id="packetTitle">Result</h2><div id="meta" class="meta"></div></div><button id="copyBtn" class="secondary">Copy</button></div><pre id="output" class="output">Enter a packet and click Parse.</pre></section>
