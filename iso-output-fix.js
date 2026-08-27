@@ -8,7 +8,7 @@
   function isSupportedResultMode() {
     const active = document.querySelector('.mode.active');
     const mode = active?.dataset?.mode;
-    return mode === 'request' || mode === 'response' || mode === 'tlv' || mode === 'other';
+    return mode === 'request' || mode === 'response' || mode === 'tlv' || mode === 'other' || mode === 'de';
   }
 
   function isIsoMode() {
