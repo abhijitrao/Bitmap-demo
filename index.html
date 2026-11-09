@@ -10,6 +10,8 @@
     #savePacketBtn,#savedPacketsBtn,button[data-mode="other"]{display:none!important}
     .layout{height:calc(100vh - 72px);grid-template-rows:minmax(0,1fr) auto;row-gap:16px;}
     .powered-by{position:static;grid-column:1/-1;text-align:center;font-size:12px;color:rgba(100,116,139,.55);line-height:18px;padding:0;pointer-events:none;}
+    .powered-by a{color:inherit;text-decoration:none;pointer-events:auto}
+    .powered-by a:hover{text-decoration:underline}
     @media(max-width:850px){.layout{height:auto;grid-template-rows:none;row-gap:0}.powered-by{grid-column:1}}
   </style>
 </head>
@@ -23,10 +25,45 @@
       <div class="action-row"><button id="parseBtn" class="primary">Parse</button></div>
     </section>
     <section class="panel result-panel"><div class="result-head"><div><h2 id="packetTitle">Result</h2><div id="meta" class="meta"></div></div><button id="copyBtn" class="secondary">Copy</button></div><pre id="output" class="output">Enter a packet and click Parse.</pre></section>
-    <div class="powered-by">© 2026 | Powered by BonusHub | Developed by Abhijit Rao [Version <span id="appVersion">1.2</span>]</div>
+    <div class="powered-by">© 2026 | Powered by BonusHub | Developed by Abhijit Rao | Version <span id="appVersion">—</span> | Release <a id="releaseTag" href="https://github.com/abhijitrao/Bitmap-demo/tags" target="_blank" rel="noopener noreferrer">Loading...</a></div>
   </main>
+  <script src="app-version.js"></script>
   <script src="app.js?v=7"></script><script src="custom-fields.js?v=5"></script><script src="settings.js?v=5"></script><script src="saved-packets.js?v=1"></script><script src="tlv-parser.js?v=1"></script><script src="iso-output-fix.js?v=3"></script><script src="copy-fix.js?v=1"></script><script src="hex-converter.js?v=1"></script><script src="de-parser.js?v=2"></script><script src="result-meta-fix.js?v=1"></script>
-  <script>window.addEventListener('DOMContentLoaded',()=>{const actions=document.querySelector('.topbar-actions'),settingsBtn=document.getElementById('settingsBtn'),isoFieldsBtn=[...document.querySelectorAll('button')].find(btn=>btn.textContent.trim()==='ISO Fields');if(actions&&settingsBtn&&isoFieldsBtn)actions.insertBefore(isoFieldsBtn,settingsBtn);});</script>
-  <script>document.addEventListener("DOMContentLoaded",()=>{const version=document.getElementById("appVersion");if(version)version.textContent=window.APP_VERSION||"1.2";});</script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const actions = document.querySelector('.topbar-actions');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const isoFieldsBtn = [...document.querySelectorAll('button')].find(btn => btn.textContent.trim() === 'ISO Fields');
+      if (actions && settingsBtn && isoFieldsBtn) actions.insertBefore(isoFieldsBtn, settingsBtn);
+
+      const version = document.getElementById('appVersion');
+      if (version) version.textContent = window.APP_VERSION || '—';
+
+      const releaseTag = document.getElementById('releaseTag');
+      fetch('https://api.github.com/repos/abhijitrao/Bitmap-demo/tags?per_page=1', { headers: { Accept: 'application/vnd.github+json' } })
+        .then(response => {
+          if (!response.ok) throw new Error('Unable to fetch release tag');
+          return response.json();
+        })
+        .then(tags => {
+          if (!releaseTag) return;
+          const tag = Array.isArray(tags) && tags.length ? tags[0].name : null;
+          if (tag) {
+            releaseTag.textContent = tag;
+            releaseTag.href = 'https://github.com/abhijitrao/Bitmap-demo/releases/tag/' + encodeURIComponent(tag);
+            releaseTag.title = 'Open GitHub release/tag ' + tag;
+          } else {
+            releaseTag.textContent = 'Not published';
+          }
+        })
+        .catch(() => {
+          if (releaseTag) {
+            releaseTag.textContent = 'Unavailable';
+            releaseTag.href = 'https://github.com/abhijitrao/Bitmap-demo/tags';
+            releaseTag.title = 'Could not load the latest Git tag';
+          }
+        });
+    });
+  </script>
 </body>
 </html>
