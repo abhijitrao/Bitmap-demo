@@ -3,6 +3,7 @@ name: Build Chrome-based Bitmap Parser
 on:
   push:
     branches:
+      - main
       - feature/chrome-based-exe
     paths:
       - "launcher.py"
