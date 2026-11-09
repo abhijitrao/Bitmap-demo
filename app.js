@@ -21,5 +21,3 @@ function copyResult(){const text=output?.textContent||'';if(!text)return;const d
 let autoParseTimer; document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.mode').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));$('parseBtn')?.addEventListener('click',doParse);$('clearBtn')?.addEventListener('click',()=>{clearTimeout(autoParseTimer);input.value='';state.inputs[inputKeyForMode(activeModeFromUi())]='';updateEmptyResultHeader();output.textContent='Enter a packet and click Parse.'});$('copyBtn')?.addEventListener('click',copyResult);['showBitmap','showFieldName','showLength','convertAscii','hideValue','originalOrder','p2peMode'].forEach(id=>$(id)?.addEventListener('change',doParse));input?.addEventListener('input',()=>{state.inputs[inputKeyForMode(activeModeFromUi())]=input.value;clearTimeout(autoParseTimer);autoParseTimer=setTimeout(doParse,300)})});
 function setMode(mode){clearTimeout(autoParseTimer);saveCurrentInput();switchParserInput(mode);doParse()}
 
-// Central release version used by the footer.
-window.APP_VERSION = '1.2';
