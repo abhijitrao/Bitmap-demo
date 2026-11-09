@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name "Bitmap Parser" ^
   --add-data "index.html;." ^
-  --add-data "app-version.js;." ^
+  --add-data "version.js;." ^
   --add-data "styles.css;." ^
   --add-data "app.js;." ^
   --add-data "custom-fields.js;." ^
