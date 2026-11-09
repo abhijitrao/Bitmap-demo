@@ -23,12 +23,16 @@ def show_message(title, message, error=False):
 
 
 def acquire_single_instance():
-    kernel32 = ctypes.windll.kernel32
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel32.CreateMutexW.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
     handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
     if not handle:
         show_message(APP_NAME, "Could not initialize the application.", True)
         return None
-    if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
         show_message(APP_NAME, "Bitmap Parser is already running in Chrome.")
         kernel32.CloseHandle(handle)
         return None
@@ -108,7 +112,7 @@ def main():
             server.shutdown()
             server.server_close()
     finally:
-        ctypes.windll.kernel32.CloseHandle(mutex)
+        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(mutex)
 
 
 if __name__ == "__main__":
