@@ -1,0 +1,98 @@
+name: Build Chrome-based Bitmap Parser
+
+on:
+  push:
+    branches:
+      - feature/chrome-based-exe
+    paths:
+      - "launcher.py"
+      - "index.html"
+      - "styles.css"
+      - "*.js"
+      - "requirements-build.txt"
+      - "build-chrome-exe.bat"
+      - "build-chrome-linux.sh"
+      - ".github/workflows/build-chrome-exe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependency
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Build EXE
+        shell: cmd
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name "Bitmap Parser" ^
+            --add-data "index.html;." ^
+            --add-data "styles.css;." ^
+            --add-data "app.js;." ^
+            --add-data "custom-fields.js;." ^
+            --add-data "settings.js;." ^
+            --add-data "saved-packets.js;." ^
+            --add-data "tlv-parser.js;." ^
+            --add-data "iso-output-fix.js;." ^
+            --add-data "copy-fix.js;." ^
+            --add-data "hex-converter.js;." ^
+            --add-data "de-parser.js;." ^
+            --add-data "result-meta-fix.js;." ^
+            launcher.py
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitmap-Parser-Chrome-Windows
+          path: "dist/Bitmap Parser.exe"
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependency
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Build Linux executable
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --name "Bitmap Parser" \
+            --add-data "index.html:." \
+            --add-data "styles.css:." \
+            --add-data "app.js:." \
+            --add-data "custom-fields.js:." \
+            --add-data "settings.js:." \
+            --add-data "saved-packets.js:." \
+            --add-data "tlv-parser.js:." \
+            --add-data "iso-output-fix.js:." \
+            --add-data "copy-fix.js:." \
+            --add-data "hex-converter.js:." \
+            --add-data "de-parser.js:." \
+            --add-data "result-meta-fix.js:." \
+            launcher.py
+          chmod +x "dist/Bitmap Parser"
+
+      - name: Upload Linux executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bitmap-Parser-Chrome-Linux
+          path: "dist/Bitmap Parser"
+          if-no-files-found: error
