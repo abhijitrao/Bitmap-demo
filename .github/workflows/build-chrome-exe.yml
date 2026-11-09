@@ -39,6 +39,7 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --windowed --name "Bitmap Parser" ^
             --add-data "index.html;." ^
+            --add-data "app-version.js;." ^
             --add-data "styles.css;." ^
             --add-data "app.js;." ^
             --add-data "custom-fields.js;." ^
@@ -77,6 +78,7 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --name "Bitmap Parser" \
             --add-data "index.html:." \
+            --add-data "app-version.js:." \
             --add-data "styles.css:." \
             --add-data "app.js:." \
             --add-data "custom-fields.js:." \
