@@ -5,8 +5,7 @@ import socket
 import subprocess
 import sys
 import threading
-import time
-import webbrowser
+from ctypes import wintypes
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
