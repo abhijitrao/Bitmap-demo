@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 python3 -m pip install --user --upgrade -r requirements-build.txt
 python3 -m PyInstaller --noconfirm --clean --onefile --name "Bitmap Parser" \
   --add-data "index.html:." \
+  --add-data "app-version.js:." \
   --add-data "styles.css:." \
   --add-data "app.js:." \
   --add-data "custom-fields.js:." \
