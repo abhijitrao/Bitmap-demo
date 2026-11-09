@@ -7,6 +7,7 @@ on:
     paths:
       - "launcher.py"
       - "index.html"
+      - "launcher.py"
       - "styles.css"
       - "*.js"
       - "requirements-build.txt"
