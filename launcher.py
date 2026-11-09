@@ -112,7 +112,10 @@ def main():
             server.shutdown()
             server.server_close()
     finally:
-        ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(mutex)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        kernel32.CloseHandle(mutex)
 
 
 if __name__ == "__main__":
